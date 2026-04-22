@@ -1,0 +1,21 @@
+# Gitleaks configuration
+# Allowlist false positives — placeholder values in example/template files
+
+title = "Gitleaks Config - HelpdeskPolda"
+
+[allowlist]
+  description = "Allowlist template/example files and CI test values"
+  paths = [
+    # Example/template files — contain intentional placeholder secrets
+    '''.env\.example''',
+    '''.env\.staging\.example''',
+  ]
+  regexes = [
+    # Explicit placeholder patterns, not real secrets
+    '''your_super_secret_jwt_key_change_in_production''',
+    '''your_super_secret_refresh_key_change_in_production''',
+    '''ci_test_jwt_secret_key_not_for_production''',
+    '''ci_test_refresh_secret_key_not_for_production''',
+    '''helpdesk_pass''',
+    '''rootpassword''',
+  ]

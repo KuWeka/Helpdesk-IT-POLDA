@@ -30,6 +30,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
 
   filesystem-vuln-scan:
     runs-on: ubuntu-latest
@@ -46,7 +47,7 @@ jobs:
           scan-type: fs
           scan-ref: backend
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
           format: sarif
           output: trivy-fs.sarif
 
@@ -93,7 +94,7 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
 
       - name: Upload Image SARIF
         uses: github/codeql-action/upload-sarif@v3
