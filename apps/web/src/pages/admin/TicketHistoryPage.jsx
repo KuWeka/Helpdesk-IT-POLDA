@@ -21,6 +21,8 @@ import {
 import { Search, Filter, RefreshCcw, Activity, CheckCircle2, Clock, Eye, Trash2, MapPin, User, Calendar, Loader2 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 import { format, differenceInDays, startOfMonth } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -166,10 +168,10 @@ export default function TicketHistoryPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Riwayat Tiket</h1>
-        <p className="text-sm text-muted-foreground mt-1">Data historis tiket yang telah selesai, dibatalkan, atau ditolak.</p>
-      </div>
+      <SectionHeader
+        title="Riwayat Tiket"
+        subtitle="Data historis tiket yang telah selesai, dibatalkan, atau ditolak."
+      />
 
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         <Card className="border-border shadow-sm"><CardContent className="p-5 flex gap-4 items-center"><div className="p-3 bg-green-500/10 text-green-500 rounded-xl"><CheckCircle2 className="h-6 w-6"/></div><div><p className="text-sm font-medium text-muted-foreground">Selesai Bulan Ini</p><h3 className="text-2xl font-bold">{analytics.completedMonth}</h3></div></CardContent></Card>
@@ -191,8 +193,8 @@ export default function TicketHistoryPage() {
           <Button variant="ghost" onClick={() => {setSearchTerm(''); setStatusFilter('all'); setTechFilter('all');}}><RefreshCcw className="h-4 w-4 mr-2" /> Reset</Button>
         </div>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="px-6">ID & Judul</TableHead>
@@ -232,7 +234,15 @@ export default function TicketHistoryPage() {
                     );
                   })
                 ) : (
-                  <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">Tidak ada riwayat.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-32">
+                      <Empty
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title="Tidak ada riwayat"
+                        description="Belum ada tiket yang cocok dengan filter saat ini."
+                      />
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>

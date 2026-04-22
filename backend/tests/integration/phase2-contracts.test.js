@@ -117,8 +117,8 @@ describe('Phase 2 API Contract Tests', () => {
         category: 'General'
       });
     expect(res.status).toBe(201);
-    expect(res.body).toHaveProperty('id');
-    ticketId = res.body.id;
+    expect(res.body.data.ticket).toHaveProperty('id');
+    ticketId = res.body.data.ticket.id;
   });
 
   test('TICKETS: GET /api/tickets/:id fetch ticket', async () => {

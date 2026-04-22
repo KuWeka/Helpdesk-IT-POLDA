@@ -9,13 +9,11 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import {
   Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
+  EMPTY_STATE_VARIANTS,
 } from '@/components/ui/empty.jsx';
 import { Search, RefreshCcw, Inbox } from 'lucide-react';
 import { format } from 'date-fns';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractLogs = (payload) => {
   if (Array.isArray(payload?.logs)) return payload.logs;
@@ -74,10 +72,10 @@ export default function ActivityLogsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Log Aktivitas</h1>
-        <p className="text-sm text-muted-foreground mt-1">Audit trail tindakan sistem dari backend MySQL Edition.</p>
-      </div>
+      <SectionHeader
+        title="Log Aktivitas"
+        subtitle="Audit trail tindakan sistem dari backend MySQL Edition."
+      />
 
       <Card className="border-border shadow-sm overflow-hidden">
         <div className="p-4 bg-muted/50 border-b flex flex-wrap gap-4">
@@ -107,8 +105,8 @@ export default function ActivityLogsPage() {
         </div>
         
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="px-6 w-[160px]">Timestamp</TableHead>
@@ -150,15 +148,12 @@ export default function ActivityLogsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-56">
-                      <Empty className="border-0 shadow-none">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            <Inbox />
-                          </EmptyMedia>
-                          <EmptyTitle>Tidak ada log aktivitas</EmptyTitle>
-                          <EmptyDescription>Belum ada aktivitas yang cocok dengan filter saat ini.</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
+                      <Empty
+                        className="border-0 shadow-none"
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title="Tidak ada log aktivitas"
+                        description="Belum ada aktivitas yang cocok dengan filter saat ini."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

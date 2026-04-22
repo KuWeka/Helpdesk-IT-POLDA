@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   description TEXT NOT NULL,
   location VARCHAR(255),
   urgency ENUM('Rendah', 'Sedang', 'Tinggi', 'Kritis') DEFAULT 'Sedang',
+  category VARCHAR(100) DEFAULT NULL,
   status ENUM('Pending', 'Proses', 'Selesai', 'Ditolak', 'Dibatalkan') DEFAULT 'Pending',
   user_id VARCHAR(36) NOT NULL,
   assigned_technician_id VARCHAR(36) NULL,

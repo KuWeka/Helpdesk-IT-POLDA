@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 import { ArrowLeft, MessageSquare, Calendar, User, MapPin, Download, AlertCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -150,7 +151,7 @@ export default function TicketDetailPage() {
             <StatusBadge status={ticket.status} />
             <UrgencyBadge urgency={ticket.urgency} />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-balance">{ticket.title}</h1>
+          <SectionHeader title={ticket.title} />
         </div>
         <Button 
           disabled={isChatLoading} 

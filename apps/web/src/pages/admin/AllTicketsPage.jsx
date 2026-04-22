@@ -25,11 +25,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, Filter, RefreshCcw, Trash2, Eye, MoreHorizontal } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -119,10 +121,10 @@ export default function AllTicketsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Semua Tiket</h1>
-        <p className="text-sm text-muted-foreground mt-1">Kelola dan pantau seluruh tiket bantuan dalam sistem.</p>
-      </div>
+      <SectionHeader
+        title="Semua Tiket"
+        subtitle="Kelola dan pantau seluruh tiket bantuan dalam sistem."
+      />
 
       <Card className="border-border shadow-sm overflow-hidden">
         <div className="p-4 bg-muted/50 border-b space-y-4">
@@ -170,8 +172,8 @@ export default function AllTicketsPage() {
         </div>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="w-[120px] px-6">ID Tiket</TableHead>
@@ -239,10 +241,11 @@ export default function AllTicketsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-48 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <Filter className="h-8 w-8 mb-2 opacity-50" />
-                        <p className="font-medium text-foreground">Tidak ada tiket ditemukan</p>
-                      </div>
+                      <Empty
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title="Tidak ada tiket ditemukan"
+                        description="Coba ubah filter atau kata kunci pencarian Anda."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

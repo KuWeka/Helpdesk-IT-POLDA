@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { CheckCheck } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.jsx';
+import { Check, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils.js';
 import { format } from 'date-fns';
 
@@ -12,45 +13,54 @@ export default function ChatMessage({ message, isOwnMessage }) {
     return format(date, 'HH:mm');
   };
 
+  const senderName = message.sender_name || (isOwnMessage ? 'Anda' : 'Teknisi');
+  const senderRole = message.sender_role || (isOwnMessage ? 'Anda' : 'Pengguna');
+  const messageContent = message.message_content || message.content || '';
+  const timestamp = message.created_at || message.created || message.timestamp;
+  const isRead = Boolean(message.is_read || message.read_at);
+
   return (
-    <div className={cn("flex w-full mb-4", isOwnMessage ? "justify-end" : "justify-start")}>
-      <div 
-        className={cn(
-          "max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 shadow-sm relative group",
-          isOwnMessage 
-            ? "bg-primary text-primary-foreground rounded-tr-sm" 
-            : "bg-muted border border-border text-foreground rounded-tl-sm"
-        )}
-      >
+    <div className={cn('mb-4 flex w-full gap-3', isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start')}>
+      <Avatar className="mt-0.5 size-8 shrink-0">
+        <AvatarImage src={message.sender_avatar} alt={senderName} />
+        <AvatarFallback className="text-xs">
+          {senderName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+
+      <div className={cn('flex max-w-[85%] flex-col md:max-w-[70%]', isOwnMessage ? 'items-end' : 'items-start')}>
         {!isOwnMessage && (
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-primary">
-              {message.sender_name || 'Teknisi'}
+          <div className="mb-1 flex items-center gap-2 px-1">
+            <span className="text-xs font-semibold text-foreground">
+              {senderName}
             </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              {message.sender_role}
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              {senderRole}
             </span>
           </div>
         )}
-        
-        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-          {message.message_content}
-        </p>
-        
-        <div className={cn(
-          "flex items-center justify-end gap-1 mt-1",
-          isOwnMessage ? "text-primary-foreground/80" : "text-muted-foreground"
-        )}>
-          <span className="text-[10px]">{formatTime(message.created_at || message.created)}</span>
+
+        <div
+          className={cn(
+            'rounded-2xl border px-4 py-3 shadow-sm',
+            isOwnMessage
+              ? 'rounded-tr-sm border-primary/20 bg-primary text-primary-foreground'
+              : 'rounded-tl-sm border-border bg-muted text-foreground'
+          )}
+        >
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            {messageContent}
+          </p>
+        </div>
+
+        <div className={cn('mt-1 flex items-center gap-1 px-1 text-xs', isOwnMessage ? 'text-primary/80' : 'text-muted-foreground')}>
+          <span>{formatTime(timestamp)}</span>
           {isOwnMessage && (
-            <CheckCheck
-              className={cn(
-                "h-3.5 w-3.5 ml-1",
-                message.is_read
-                  ? "text-primary-foreground/90"
-                  : "text-primary-foreground/50"
-              )}
-            />
+            isRead ? (
+              <CheckCheck className="size-3.5 text-green-600" title="Telah dibaca" />
+            ) : (
+              <Check className="size-3.5 opacity-80" title="Terkirim" />
+            )
           )}
         </div>
       </div>

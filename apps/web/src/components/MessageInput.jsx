@@ -4,13 +4,20 @@ import { Button } from '@/components/ui/button.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Send, Lock } from 'lucide-react';
 
-export default function MessageInput({ onSend, disabled, isClosed }) {
+export default function MessageInput({ onSend, disabled, isClosed, onTypingChange }) {
   const [message, setMessage] = useState('');
+
+  const handleChange = (e) => {
+    const nextMessage = e.target.value;
+    setMessage(nextMessage);
+    onTypingChange?.(nextMessage.trim().length > 0);
+  };
 
   const handleSend = () => {
     if (message.trim() && !disabled && !isClosed) {
       onSend(message.trim());
       setMessage('');
+      onTypingChange?.(false);
     }
   };
 
@@ -34,7 +41,7 @@ export default function MessageInput({ onSend, disabled, isClosed }) {
     <div className="flex items-end gap-2 p-4 border-t bg-background">
       <Textarea
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder="Ketik pesan..."
         rows={1}

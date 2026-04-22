@@ -49,6 +49,99 @@ router.get('/', auth, validateQuery(ticketSchemas.list), asyncHandler(async (req
   res.json(ApiResponse.paginated(result.tickets, result.pagination));
 }));
 
+// Get ticket summary for dashboards
+router.get('/summary', auth, asyncHandler(async (req, res) => {
+  const { role, userId } = req.query;
+
+  let whereClause = '';
+  let params = [];
+
+  // Role-based access control for summary scope
+  if (req.user.role === 'User') {
+    whereClause = 'WHERE user_id = ?';
+    params = [req.user.id];
+  } else if (req.user.role === 'Teknisi') {
+    whereClause = 'WHERE assigned_technician_id = ?';
+    params = [req.user.id];
+  } else if (req.user.role === 'Admin') {
+    // Admin can request scoped summary by role/userId
+    if (role === 'user' && userId) {
+      whereClause = 'WHERE user_id = ?';
+      params = [userId];
+    } else if (role === 'technician' && userId) {
+      whereClause = 'WHERE assigned_technician_id = ?';
+      params = [userId];
+    }
+  }
+
+  const [statusRows] = await pool.query(
+    `SELECT status, COUNT(*) as count
+     FROM tickets
+     ${whereClause}
+     GROUP BY status`,
+    params
+  );
+
+  const unresolvedWhere = whereClause
+    ? `${whereClause} AND status IN ('Pending', 'Proses')`
+    : "WHERE status IN ('Pending', 'Proses')";
+
+  const [agingRows] = await pool.query(
+    `SELECT COUNT(*) as count
+     FROM tickets
+     ${unresolvedWhere}
+     AND created_at < DATE_SUB(NOW(), INTERVAL 3 DAY)`,
+    params
+  );
+
+  const [urgentRows] = await pool.query(
+    `SELECT COUNT(*) as count
+     FROM tickets
+     ${unresolvedWhere}
+     AND LOWER(COALESCE(urgency, '')) IN ('tinggi', 'high', 'urgent', 'critical', 'kritis')`,
+    params
+  );
+
+  const [totalsRows] = await pool.query(
+    `SELECT
+      COUNT(*) as total_count,
+      SUM(CASE WHEN status = 'Selesai' THEN 1 ELSE 0 END) as selesai_count
+     FROM tickets
+     ${whereClause}`,
+    params
+  );
+
+  const [trendRows] = await pool.query(
+    `SELECT DATE(created_at) as day, COUNT(*) as count
+     FROM tickets
+     ${whereClause ? `${whereClause} AND` : 'WHERE'} created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+     GROUP BY DATE(created_at)
+     ORDER BY day ASC`,
+    params
+  );
+
+  const pending = Number(statusRows.find((s) => s.status === 'Pending')?.count || 0);
+  const proses = Number(statusRows.find((s) => s.status === 'Proses')?.count || 0);
+  const selesai = Number(statusRows.find((s) => s.status === 'Selesai')?.count || 0);
+  const totalCount = Number(totalsRows?.[0]?.total_count || 0);
+  const selesaiCount = Number(totalsRows?.[0]?.selesai_count || 0);
+
+  const summary = {
+    pending,
+    proses,
+    selesai,
+    sla_compliance: totalCount > 0 ? Number(((selesaiCount / totalCount) * 100).toFixed(1)) : 0,
+    aging_count: Number(agingRows?.[0]?.count || 0),
+    urgent_count: Number(urgentRows?.[0]?.count || 0),
+    trend: trendRows.map((row) => ({
+      date: row.day,
+      count: Number(row.count || 0)
+    }))
+  };
+
+  res.json(ApiResponse.success({ summary }));
+}));
+
 // Get ticket details
 router.get('/:id', auth, asyncHandler(async (req, res) => {
   const [rows] = await pool.query(`
@@ -85,16 +178,39 @@ router.get('/:id', auth, asyncHandler(async (req, res) => {
 // Create ticket
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validation');
+
+// Helper function to generate unique ticket number
+function generateTicketNumber() {
+  // Format: TKT-YYYYMMDDHHMM-RANDOM
+  // Example: TKT-202604221430-A7K9
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  
+  // Random 4-character alphanumeric suffix
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let randomSuffix = '';
+  for (let i = 0; i < 4; i++) {
+    randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  return `TKT-${year}${month}${day}${hours}${minutes}-${randomSuffix}`;
+}
+
 router.post('/', auth, validate(ticketSchemas.create), asyncHandler(async (req, res) => {
   const { title, description, location, urgency, category } = req.body;
   const id = uuidv4();
-  const prefix = 'TKT';
-  const numStr = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  const ticket_number = `${prefix}-${Date.now().toString().slice(-4)}${numStr}`;
+  
+  // Generate ticket number on backend (server-side, not frontend)
+  const ticket_number = generateTicketNumber();
+  const now = new Date();
 
   await pool.query(
-    'INSERT INTO tickets (id, ticket_number, title, description, location, urgency, category, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, ticket_number, title, description, location || '', urgency || 'Sedang', category, 'Pending', req.user.id]
+    'INSERT INTO tickets (id, ticket_number, title, description, location, urgency, category, status, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, ticket_number, title, description, location || '', urgency || 'Sedang', category, 'Pending', req.user.id, now, now]
   );
 
   await invalidateAllDashboardCaches();
@@ -102,7 +218,24 @@ router.post('/', auth, validate(ticketSchemas.create), asyncHandler(async (req, 
   const io = req.app.get('io');
   io.to('technicians').emit('new_ticket', { id, ticket_number, title, urgency, category, status: 'Pending' });
 
-  res.status(201).json({ id, ticket_number });
+  // Return full ticket data with success response
+  const ticketData = {
+    id,
+    ticket_number,
+    title,
+    description,
+    location: location || '',
+    urgency: urgency || 'Sedang',
+    category,
+    status: 'Pending',
+    user_id: req.user.id,
+    assigned_technician_id: null,
+    closed_at: null,
+    created_at: now,
+    updated_at: now
+  };
+
+  res.status(201).json(ApiResponse.success({ ticket: ticketData }, 'Tiket berhasil dibuat', 201));
 }));
 
 // Update ticket

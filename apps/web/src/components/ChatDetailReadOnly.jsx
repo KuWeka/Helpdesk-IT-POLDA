@@ -53,14 +53,15 @@ export default function ChatDetailReadOnly({ chat, messages, onBack, onDelete })
           </div>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className="flex flex-col">
-              <div className="text-[10px] text-muted-foreground mb-1 ml-1 font-medium">
-                {msg.sender_name} ({msg.sender_role}) - {safeFormatDate(msg.created_at || msg.created)}
-              </div>
-              <div className={`bg-muted p-3 rounded-xl max-w-[80%] text-sm ${msg.sender_role === 'User' ? 'bg-secondary/10 self-start' : msg.sender_role === 'Teknisi' ? 'bg-primary/10 self-end' : 'bg-destructive/10'}`}>
-                {msg.message_content}
-              </div>
-            </div>
+            <ChatMessage
+              key={msg.id}
+              message={{
+                ...msg,
+                created_at: msg.created_at || msg.created,
+                is_read: true,
+              }}
+              isOwnMessage={msg.sender_role === 'Teknisi' || msg.sender_role === 'Admin'}
+            />
           ))
         )}
       </div>

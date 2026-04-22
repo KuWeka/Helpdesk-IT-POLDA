@@ -35,7 +35,9 @@ pool.getConnection()
   })
   .catch(err => {
     logger.error('Database connection failed', { error: err.message });
-    process.exit(1);
+    if (process.env.NODE_ENV !== 'test') {
+      process.exit(1);
+    }
   });
 
 // Handle pool events

@@ -9,10 +9,12 @@ import { Input } from '@/components/ui/input.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, Filter, PlusCircle, MessageSquare, RefreshCcw, ChevronRight, ChevronLeft } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
 import { format } from 'date-fns';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -129,8 +131,10 @@ export default function UserTicketsPage() {
             <ChevronRight className="h-3 w-3 mx-1" />
             <span className="text-foreground font-medium">Tiket Saya</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Tiket Saya</h1>
-          <p className="text-sm text-muted-foreground mt-1">Pantau status dan riwayat semua tiket yang Anda laporkan.</p>
+          <SectionHeader
+            title="Tiket Saya"
+            subtitle="Pantau status dan riwayat semua tiket yang Anda laporkan."
+          />
         </div>
         <Button asChild className="shrink-0 gap-2 shadow-md shadow-primary/20">
           <Link to="/user/create-ticket">
@@ -208,8 +212,8 @@ export default function UserTicketsPage() {
         </div>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="w-[130px] px-6">ID Tiket</TableHead>
@@ -270,13 +274,11 @@ export default function UserTicketsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-48 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-muted">
-                          <Filter className="h-6 w-6 opacity-50" />
-                        </div>
-                        <p className="font-medium text-foreground">Tidak ada tiket ditemukan</p>
-                        <p className="text-sm mt-1">Coba sesuaikan filter pencarian Anda.</p>
-                      </div>
+                      <Empty
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title="Tidak ada tiket ditemukan"
+                        description="Coba sesuaikan filter pencarian Anda."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

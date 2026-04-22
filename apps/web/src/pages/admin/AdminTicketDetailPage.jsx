@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 import { ArrowLeft, Calendar, User, MapPin, AlertCircle, CheckCircle2, Trash2, UserPlus, Loader2, Download, FileImage as FileIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -190,7 +191,7 @@ export default function AdminTicketDetailPage() {
             <StatusBadge status={ticket.status} />
             <UrgencyBadge urgency={ticket.urgency} />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{ticket.title}</h1>
+          <SectionHeader title={ticket.title} />
         </div>
         
         {isAdmin && (

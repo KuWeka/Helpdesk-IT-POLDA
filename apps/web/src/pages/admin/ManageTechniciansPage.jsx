@@ -9,10 +9,7 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import {
   Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
+  EMPTY_STATE_VARIANTS,
 } from '@/components/ui/empty.jsx';
 import {
   DropdownMenu,
@@ -35,6 +32,7 @@ import { PlusCircle, Edit, Trash2, ArrowDown, MoreHorizontal, Inbox } from 'luci
 import { toast } from 'sonner';
 import AddEditTechnicianModal from '@/components/AddEditTechnicianModal.jsx';
 import { ROLES } from '@/lib/constants.js';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractTechnicians = (payload) => {
   if (Array.isArray(payload?.data?.technicians)) return payload.data.technicians;
@@ -153,8 +151,10 @@ export default function ManageTechniciansPage() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('admin.manage_techs', 'Kelola Teknisi')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t('admin.total_techs', { count: technicians.length, defaultValue: `Total: ${technicians.length} teknisi` })}</p>
+          <SectionHeader
+            title={t('admin.manage_techs', 'Kelola Teknisi')}
+            subtitle={t('admin.total_techs', { count: technicians.length, defaultValue: `Total: ${technicians.length} teknisi` })}
+          />
         </div>
         <Button onClick={() => setModalState({ isOpen: true, tech: null })} className="gap-2 shrink-0">
           <PlusCircle className="h-4 w-4" /> Tambah Teknisi
@@ -163,8 +163,8 @@ export default function ManageTechniciansPage() {
 
       <Card className="border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="px-6">Nama & Info</TableHead>
@@ -236,15 +236,12 @@ export default function ManageTechniciansPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-56">
-                      <Empty className="border-0 shadow-none">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            <Inbox />
-                          </EmptyMedia>
-                          <EmptyTitle>Tidak ada data teknisi</EmptyTitle>
-                          <EmptyDescription>Belum ada teknisi terdaftar untuk ditampilkan.</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
+                      <Empty
+                        className="border-0 shadow-none"
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title="Tidak ada data teknisi"
+                        description="Belum ada teknisi terdaftar untuk ditampilkan."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

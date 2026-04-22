@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import UserEditModal from '@/components/UserEditModal.jsx';
 import { ROLES } from '@/lib/constants.js';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -148,8 +150,10 @@ export default function ManageUsersPage() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('admin.manage_users', 'Kelola Pengguna')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t('admin.total_users', { count: filteredUsers.length, defaultValue: `Total: ${filteredUsers.length} pengguna` })}</p>
+          <SectionHeader
+            title={t('admin.manage_users', 'Kelola Pengguna')}
+            subtitle={t('admin.total_users', { count: filteredUsers.length, defaultValue: `Total: ${filteredUsers.length} pengguna` })}
+          />
         </div>
         <div className="flex items-center gap-3">
           <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -171,8 +175,8 @@ export default function ManageUsersPage() {
 
       <Card className="border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="px-6">Nama & Email</TableHead>
@@ -250,10 +254,11 @@ export default function ManageUsersPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-48 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <Users className="h-8 w-8 mb-2 opacity-50" />
-                        <p className="font-medium text-foreground">Tidak ada pengguna</p>
-                      </div>
+                      <Empty
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title="Tidak ada pengguna"
+                        description="Belum ada pengguna yang sesuai dengan filter saat ini."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

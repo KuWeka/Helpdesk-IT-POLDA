@@ -1,22 +1,62 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Globe, LogOut } from 'lucide-react';
+import { Moon, Sun, Globe, LogOut, Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useLocation } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import api from '@/lib/api';
+
+const toNumber = (value) => Number(value || 0);
+
+const buildNotificationsFromSummary = (summary = {}, role = 'User') => {
+  const roleLabel = role === 'Admin' ? 'Admin' : role === 'Teknisi' ? 'Teknisi' : 'User';
+  const pending = toNumber(summary.pending);
+  const proses = toNumber(summary.proses);
+  const urgent = toNumber(summary.urgent_count);
+  const aging = toNumber(summary.aging_count);
+
+  return [
+    {
+      id: 'pending',
+      title: 'Tiket Pending',
+      detail: `${pending} tiket menunggu tindak lanjut (${roleLabel}).`,
+    },
+    {
+      id: 'proses',
+      title: 'Tiket Dalam Proses',
+      detail: `${proses} tiket sedang ditangani.`,
+    },
+    {
+      id: 'urgent',
+      title: 'Prioritas Tinggi',
+      detail: `${urgent} tiket prioritas tinggi perlu perhatian.`,
+    },
+    {
+      id: 'aging',
+      title: 'Aging > 3 Hari',
+      detail: `${aging} tiket sudah lebih dari 3 hari belum selesai.`,
+    },
+  ];
+};
 
 export function Header() {
   const { currentUser, setCurrentUser, logout } = useAuth();
   const { i18n } = useTranslation();
   const { pathname } = useLocation();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('app_theme');
     const userTheme = currentUser?.theme;
@@ -27,6 +67,33 @@ export function Header() {
     }
     return initialTheme;
   });
+
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await api.get('/tickets/summary');
+        const summary = data?.data?.summary || data?.summary || {};
+        const items = buildNotificationsFromSummary(summary, currentUser.role);
+        setNotifications(items);
+
+        const totalUnread = toNumber(summary.pending) + toNumber(summary.urgent_count);
+        setUnreadCount(totalUnread);
+      } catch {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    };
+
+    fetchNotifications();
+    const intervalId = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(intervalId);
+  }, [currentUser, pathname]);
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -107,10 +174,49 @@ export function Header() {
       
       <div className="flex items-center gap-2">
         {currentUser && (
-          <div className="hidden sm:flex flex-col items-end mr-2">
-            <span className="text-sm font-medium">{currentUser.name || 'User'}</span>
-            <span className="text-xs text-muted-foreground">{currentUser.role}</span>
+          <div className="hidden sm:flex items-center gap-2 mr-2">
+            <div className="flex flex-col items-end">
+              <span className="text-sm font-medium">{currentUser.name || 'User'}</span>
+              <span className="text-xs text-muted-foreground">{currentUser.role}</span>
+            </div>
+            <Avatar className="size-8">
+              <AvatarImage src={currentUser.avatar} alt={currentUser.name || 'User'} />
+              <AvatarFallback>
+                {(currentUser.name || 'U').charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
           </div>
+        )}
+
+        {currentUser && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 relative" aria-label="Notifikasi">
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-[10px] leading-none">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Notifikasi</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifications.length > 0 ? (
+                notifications.map((item) => (
+                  <DropdownMenuItem key={item.id} className="cursor-default flex-col items-start gap-1 py-2">
+                    <span className="text-sm font-medium text-foreground">{item.title}</span>
+                    <span className="text-xs text-muted-foreground">{item.detail}</span>
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem className="cursor-default text-sm text-muted-foreground">
+                  Tidak ada notifikasi saat ini
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
         <DropdownMenu>

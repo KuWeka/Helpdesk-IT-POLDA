@@ -10,12 +10,16 @@ import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Switch } from '@/components/ui/switch.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
-import { ListOrdered, CheckCircle2, Calendar, Hand, ArrowRight, Activity } from 'lucide-react';
+import { ListOrdered, CheckCircle2, Calendar, Hand, ArrowRight, Activity, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import InsightCard from '@/components/InsightCard.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { TICKET_STATUS } from '@/lib/constants.js';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const safeFormatDate = (value, pattern = 'dd MMM HH:mm') => {
   if (!value) return '-';
@@ -35,6 +39,10 @@ export default function TechnicianDashboard() {
   const [myTickets, setMyTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [ticketTrendData, setTicketTrendData] = useState([]);
+  const [slaCompliance, setSlaCompliance] = useState(0);
+  const [agingTickets, setAgingTickets] = useState(0);
+  const [urgentTickets, setUrgentTickets] = useState(0);
   
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isTaking, setIsTaking] = useState(false);
@@ -65,6 +73,44 @@ export default function TechnicianDashboard() {
 
       setPendingTickets(payload.pendingTickets || []);
       setMyTickets(payload.myTickets || []);
+
+      const allTechTickets = [...(payload.pendingTickets || []), ...(payload.myTickets || [])];
+      const now = Date.now();
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+      const agingCount = allTechTickets.filter((tk) => {
+        const createdAt = tk.created_at || tk.created;
+        const createdTs = createdAt ? new Date(createdAt).getTime() : null;
+        if (!createdTs || Number.isNaN(createdTs)) return false;
+        return now - createdTs > threeDaysMs;
+      }).length;
+
+      const urgentCount = allTechTickets.filter((tk) => {
+        const urgency = String(tk.urgency || '').toLowerCase();
+        return urgency.includes('tinggi') || urgency.includes('urgent') || urgency.includes('critical') || urgency.includes('kritis') || urgency.includes('high');
+      }).length;
+
+      const handled = (payload.stats?.myProses || 0) + (payload.stats?.completedToday || 0);
+      const slaPct = handled > 0 ? Math.round(((payload.stats?.completedToday || 0) / handled) * 100) : 0;
+
+      const dayMap = new Map();
+      allTechTickets.forEach((tk) => {
+        const createdAt = tk.created_at || tk.created;
+        if (!createdAt) return;
+        const date = new Date(createdAt);
+        if (Number.isNaN(date.getTime())) return;
+        const key = format(date, 'dd MMM');
+        dayMap.set(key, (dayMap.get(key) || 0) + 1);
+      });
+
+      const trend = Array.from(dayMap.entries())
+        .map(([date, count]) => ({ date, count }))
+        .slice(-8);
+
+      setAgingTickets(agingCount);
+      setUrgentTickets(urgentCount);
+      setSlaCompliance(slaPct);
+      setTicketTrendData(trend);
 
     } catch (error) {
       console.error('Dashboard error:', error);
@@ -126,8 +172,10 @@ export default function TechnicianDashboard() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.tech_title', 'Dashboard Teknisi')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t('dashboard.hello', 'Halo')}, <span className="font-semibold text-foreground">{currentUser?.name}</span></p>
+          <SectionHeader
+            title={t('dashboard.tech_title', 'Dashboard Teknisi')}
+            subtitle={`${t('dashboard.hello', 'Halo')}, ${currentUser?.name || 'Teknisi'}`}
+          />
         </div>
         
         <div className="flex items-center gap-4 bg-background p-3 rounded-xl border">
@@ -147,6 +195,8 @@ export default function TechnicianDashboard() {
         </div>
       </div>
 
+
+      {/* Summary Cards */}
       {isLoading ? (
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -182,6 +232,50 @@ export default function TechnicianDashboard() {
         </div>
       )}
 
+      {/* Insight Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+        <InsightCard title="Tren Tiket Teknisi" icon={TrendingUp} isLoading={isLoading}>
+          {ticketTrendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={ticketTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <Empty
+              variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+              title="Data tren belum tersedia"
+              description="Tidak ada data trend untuk ditampilkan"
+            />
+          )}
+        </InsightCard>
+
+        <InsightCard title="SLA Penyelesaian" icon={ShieldCheck} isLoading={isLoading}>
+          <div className="flex items-center gap-4">
+            <div className="text-3xl font-bold text-primary">{slaCompliance}%</div>
+            <div className="text-sm text-muted-foreground">rasio penyelesaian tiket teknisi hari ini</div>
+          </div>
+        </InsightCard>
+
+        <InsightCard title="Aging Tiket" icon={Timer} isLoading={isLoading}>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-amber-600">{agingTickets}</div>
+            <p className="text-sm text-muted-foreground">Tiket lebih dari 3 hari belum selesai</p>
+          </div>
+        </InsightCard>
+
+        <InsightCard title="Prioritas Hari Ini" icon={Flame} isLoading={isLoading}>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-red-600">{urgentTickets}</div>
+            <p className="text-sm text-muted-foreground">Tiket prioritas tinggi di antrian teknisi</p>
+          </div>
+        </InsightCard>
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-8">
         <Card className="border-border shadow-sm flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -191,8 +285,8 @@ export default function TechnicianDashboard() {
             </Button>
           </CardHeader>
           <CardContent className="flex-1 p-0">
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <Table className="min-w-full">
                 <TableHeader className="bg-muted/30">
                   <TableRow>
                     <TableHead className="px-4">Judul & ID</TableHead>
@@ -232,7 +326,11 @@ export default function TechnicianDashboard() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                        {t('tickets.no_tickets', 'Tidak ada tiket')}
+                        <Empty
+                          variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                          title={t('tickets.no_tickets', 'Tidak ada tiket')}
+                          description="Belum ada tiket pada antrian saat ini."
+                        />
                       </TableCell>
                     </TableRow>
                   )}
@@ -250,8 +348,8 @@ export default function TechnicianDashboard() {
             </Button>
           </CardHeader>
           <CardContent className="flex-1 p-0">
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <Table className="min-w-full">
                 <TableHeader className="bg-muted/30">
                   <TableRow>
                     <TableHead className="px-4">Judul & ID</TableHead>
@@ -288,7 +386,11 @@ export default function TechnicianDashboard() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={3} className="h-32 text-center text-muted-foreground">
-                        {t('tickets.no_tickets', 'Tidak ada tiket')}
+                        <Empty
+                          variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                          title={t('tickets.no_tickets', 'Tidak ada tiket')}
+                          description="Belum ada tiket proses milik teknisi saat ini."
+                        />
                       </TableCell>
                     </TableRow>
                   )}

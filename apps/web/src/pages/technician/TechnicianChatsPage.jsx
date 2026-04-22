@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import { Search, MessageSquare, AlertCircle, ArrowLeft, Lock } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -35,6 +36,7 @@ export default function TechnicianChatsPage() {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
   const activeChatIdRef = useRef(null);
 
@@ -270,10 +272,11 @@ export default function TechnicianChatsPage() {
               })}
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
-              <MessageSquare className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm font-medium">Tidak ada pesan</p>
-            </div>
+            <Empty
+              variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+              title="Tidak ada pesan"
+              description="Belum ada percakapan yang tersedia saat ini."
+            />
           )}
           </div>
         </ScrollArea>
@@ -333,9 +336,11 @@ export default function TechnicianChatsPage() {
                   <Skeleton className="h-12 w-1/2 rounded-2xl rounded-tr-sm ml-auto" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  Belum ada pesan.
-                </div>
+                <Empty
+                  variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                  title="Belum ada pesan"
+                  description="Percakapan belum memiliki pesan."
+                />
               ) : (
                 <div className="space-y-2">
                   {messages.map((msg) => (
@@ -345,6 +350,19 @@ export default function TechnicianChatsPage() {
                       isOwnMessage={msg.sender_id === currentUser.id} 
                     />
                   ))}
+                  {isTyping && (
+                    <div className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+                      <Avatar className="size-6">
+                        <AvatarFallback>{(currentUser?.name || 'A').charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex gap-1">
+                        <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span>Anda sedang mengetik...</span>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -355,6 +373,7 @@ export default function TechnicianChatsPage() {
             <MessageInput 
               onSend={handleSendMessage} 
               isClosed={activeChat?.status === 'Closed'} 
+              onTypingChange={setIsTyping}
             />
           </>
         )}

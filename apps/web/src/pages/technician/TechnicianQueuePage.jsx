@@ -7,10 +7,12 @@ import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { ListOrdered, Eye } from 'lucide-react';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -71,10 +73,10 @@ export default function TechnicianQueuePage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('tickets.queue', 'Antrian Tiket')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Daftar tiket berstatus Pending yang belum ditugaskan dan siap diproses.</p>
-      </div>
+      <SectionHeader
+        title={t('tickets.queue', 'Antrian Tiket')}
+        subtitle="Daftar tiket berstatus Pending yang belum ditugaskan dan siap diproses."
+      />
 
       {error && (
         <div className="p-4 bg-destructive/10 text-destructive rounded-xl border border-destructive/20 font-medium">
@@ -84,8 +86,8 @@ export default function TechnicianQueuePage() {
 
       <Card className="border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="w-[130px] px-6">ID Tiket</TableHead>
@@ -141,12 +143,11 @@ export default function TechnicianQueuePage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-48 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                          <ListOrdered className="h-6 w-6 opacity-50" />
-                        </div>
-                        <p className="font-medium text-foreground">{t('tickets.no_tickets', 'Tidak ada tiket')}</p>
-                      </div>
+                      <Empty
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title={t('tickets.no_tickets', 'Tidak ada tiket')}
+                        description="Antrian tiket saat ini kosong."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

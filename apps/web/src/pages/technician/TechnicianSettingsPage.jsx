@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { toast } from 'sonner';
 import { Loader2, Save, User, Lock, Bell, Globe, Palette, ToggleLeft, Clock, Smartphone, Wrench, ShieldAlert } from 'lucide-react';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 export default function TechnicianSettingsPage() {
   const { currentUser, setCurrentUser } = useAuth();
@@ -182,10 +183,10 @@ export default function TechnicianSettingsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-12">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Pengaturan Teknisi</h1>
-        <p className="text-muted-foreground mt-1">Kelola profil, keamanan, dan preferensi kerja Anda</p>
-      </div>
+      <SectionHeader
+        title="Pengaturan Teknisi"
+        subtitle="Kelola profil, keamanan, dan preferensi kerja Anda"
+      />
 
       <Tabs defaultValue="profil" className="w-full flex flex-col md:flex-row gap-6">
         <TabsList className="flex flex-row md:flex-col h-auto bg-muted/30 justify-start overflow-x-auto md:w-72 shrink-0 p-2 rounded-xl border gap-1">

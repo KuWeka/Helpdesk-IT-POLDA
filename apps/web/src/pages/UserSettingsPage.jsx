@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
-import { Switch } from '@/components/ui/switch.jsx';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group.jsx';
 import { toast } from 'sonner';
-import { Loader2, Save, User, Lock, Bell, Palette } from 'lucide-react';
+import { Loader2, Save, User, Lock, Palette } from 'lucide-react';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 
 export default function UserSettingsPage() {
@@ -29,11 +29,6 @@ export default function UserSettingsPage() {
     oldPassword: '',
     newPassword: '',
     confirmPassword: ''
-  });
-
-  const [notifData, setNotifData] = useState({
-    email: currentUser?.notification_settings?.email ?? true,
-    chat: currentUser?.notification_settings?.chat ?? true,
   });
 
   const [prefData, setPrefData] = useState({
@@ -57,6 +52,10 @@ export default function UserSettingsPage() {
   };
 
   const handlePasswordSave = async () => {
+    if (!passwordData.oldPassword) {
+      toast.error('Password lama wajib diisi');
+      return;
+    }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error('Konfirmasi password tidak cocok');
       return;
@@ -65,30 +64,24 @@ export default function UserSettingsPage() {
       toast.error('Password baru minimal 6 karakter');
       return;
     }
+    if (passwordData.oldPassword === passwordData.newPassword) {
+      toast.error('Password baru harus berbeda dengan password lama');
+      return;
+    }
 
     setIsLoading(true);
     try {
-      // Intentionally omitting oldPassword check for simplicity in this frontend refactor, backend will replace the hash if authorized
+      // Send both oldPassword and newPassword for backend validation
       await api.patch(`/users/${currentUser.id}`, {
+        oldPassword: passwordData.oldPassword,
         password: passwordData.newPassword
       });
       
       toast.success('Password berhasil diubah');
       setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
-      toast.error('Gagal mengubah password. Pastikan password lama benar.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleNotifSave = async () => {
-    setIsLoading(true);
-    try {
-      // Backend does not currently support notification settings for general users, mock success
-      toast.success('Pengaturan notifikasi berhasil diperbarui');
-    } catch (err) {
-      toast.error('Gagal menyimpan pengaturan notifikasi');
+      const errorMessage = err.response?.data?.message || 'Gagal mengubah password. Pastikan password lama benar.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -127,13 +120,13 @@ export default function UserSettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Pengaturan</h1>
-        <p className="text-muted-foreground mt-1">Kelola profil, keamanan, dan preferensi akun Anda</p>
-      </div>
+      <SectionHeader
+        title="Pengaturan"
+        subtitle="Kelola profil, keamanan, dan preferensi akun Anda"
+      />
 
       <Tabs defaultValue="profil" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
           <TabsTrigger value="profil" className="gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Profil</span>
@@ -141,10 +134,6 @@ export default function UserSettingsPage() {
           <TabsTrigger value="password" className="gap-2">
             <Lock className="h-4 w-4" />
             <span className="hidden sm:inline">Password</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifikasi" className="gap-2">
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifikasi</span>
           </TabsTrigger>
           <TabsTrigger value="preferensi" className="gap-2">
             <Palette className="h-4 w-4" />
@@ -240,43 +229,6 @@ export default function UserSettingsPage() {
                 <Button onClick={handlePasswordSave} disabled={isLoading || !passwordData.oldPassword || !passwordData.newPassword} className="gap-2">
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Ubah Password
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="notifikasi" className="mt-0 outline-none">
-            <Card className="border-border shadow-sm">
-              <CardHeader>
-                <CardTitle>Pengaturan Notifikasi</CardTitle>
-                <CardDescription>Pilih bagaimana Anda ingin menerima pemberitahuan.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between max-w-md">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Notifikasi Email</Label>
-                    <p className="text-sm text-muted-foreground">Terima update tiket via email</p>
-                  </div>
-                  <Switch 
-                    checked={notifData.email} 
-                    onCheckedChange={(checked) => setNotifData(prev => ({...prev, email: checked}))} 
-                  />
-                </div>
-                <div className="flex items-center justify-between max-w-md">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Notifikasi Chat</Label>
-                    <p className="text-sm text-muted-foreground">Pemberitahuan pesan baru</p>
-                  </div>
-                  <Switch 
-                    checked={notifData.chat} 
-                    onCheckedChange={(checked) => setNotifData(prev => ({...prev, chat: checked}))} 
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="border-t pt-6">
-                <Button onClick={handleNotifSave} disabled={isLoading} className="gap-2">
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Simpan Pengaturan
                 </Button>
               </CardFooter>
             </Card>

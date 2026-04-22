@@ -74,7 +74,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Prepare payload
     const payload = {
       name: formData.name,
@@ -108,26 +108,26 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
               : 'Isi data berikut untuk membuat akun pengguna baru.'}
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nama Lengkap</Label>
-            <Input 
-              id="name" 
-              value={formData.name} 
-              onChange={(e) => handleChange('name', e.target.value)} 
-              required 
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              required
               className="bg-background text-foreground"
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              value={formData.email} 
-              onChange={(e) => handleChange('email', e.target.value)} 
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleChange('email', e.target.value)}
               required={!user}
               disabled={!!user}
               className="bg-background text-foreground disabled:opacity-50"
@@ -137,10 +137,10 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
 
           <div className="space-y-2">
             <Label htmlFor="phone">No. HP / WhatsApp</Label>
-            <Input 
-              id="phone" 
-              value={formData.phone} 
-              onChange={(e) => handleChange('phone', e.target.value)} 
+            <Input
+              id="phone"
+              value={formData.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
               className="bg-background text-foreground"
             />
           </div>
@@ -168,7 +168,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Tidak Ada</SelectItem>
-                  {divisions.map(div => (
+                  {divisions.map((div) => (
                     <SelectItem key={div.id} value={div.id}>{div.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -176,32 +176,30 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
             </div>
           </div>
 
-          {(!user || formData.password) && (
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-              <div className="space-y-2">
-                <Label htmlFor="password">{user ? 'Password Baru (Opsional)' : 'Password'}</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  value={formData.password} 
-                  onChange={(e) => handleChange('password', e.target.value)} 
-                  required={!user}
-                  className="bg-background text-foreground"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="passwordConfirm">Konfirmasi Password</Label>
-                <Input 
-                  id="passwordConfirm" 
-                  type="password" 
-                  value={formData.passwordConfirm} 
-                  onChange={(e) => handleChange('passwordConfirm', e.target.value)} 
-                  required={!user || !!formData.password}
-                  className="bg-background text-foreground"
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <div className="space-y-2">
+              <Label htmlFor="password">{user ? 'Password Baru (Opsional)' : 'Password'}</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => handleChange('password', e.target.value)}
+                required={!user}
+                className="bg-background text-foreground"
+              />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label htmlFor="passwordConfirm">Konfirmasi Password</Label>
+              <Input
+                id="passwordConfirm"
+                type="password"
+                value={formData.passwordConfirm}
+                onChange={(e) => handleChange('passwordConfirm', e.target.value)}
+                required={!user || !!formData.password}
+                className="bg-background text-foreground"
+              />
+            </div>
+          </div>
 
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="space-y-0.5">
@@ -210,9 +208,9 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
                 {formData.is_active ? 'Akun aktif dan dapat login' : 'Akun dinonaktifkan'}
               </p>
             </div>
-            <Switch 
-              checked={formData.is_active} 
-              onCheckedChange={(checked) => handleChange('is_active', checked)} 
+            <Switch
+              checked={formData.is_active}
+              onCheckedChange={(checked) => handleChange('is_active', checked)}
             />
           </div>
 

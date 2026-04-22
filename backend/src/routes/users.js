@@ -78,9 +78,10 @@ router.post('/', auth, role('Admin'), validate(userSchemas.create), asyncHandler
 
 /**
  * PATCH /api/users/:id
- * Update user
+ * Update user (with password validation support)
+ * Body: { name, email, phone, language, theme, password, oldPassword }
  */
-router.patch('/:id', auth, validate(userSchemas.update), asyncHandler(async (req, res) => {
+router.patch('/:id', auth, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
@@ -105,17 +106,32 @@ router.patch('/:id', auth, validate(userSchemas.update), asyncHandler(async (req
     }
   }
 
-  const updatedUser = await UserService.updateUser(id, updates);
+  try {
+    const updatedUser = await UserService.updateUser(id, updates);
 
-  if (!updatedUser) {
-    return res.status(404).json(ApiResponse.error('User tidak ditemukan', null, 404));
+    if (!updatedUser) {
+      return res.status(404).json(ApiResponse.error('User tidak ditemukan', null, 404));
+    }
+
+    await invalidateAllDashboardCaches();
+
+    res.json(ApiResponse.success({
+      user: updatedUser
+    }, 'User berhasil diperbarui'));
+  } catch (error) {
+    // Handle specific password validation errors
+    if (error.message.includes('Password lama tidak sesuai')) {
+      return res.status(401).json(ApiResponse.error('Password lama tidak sesuai', null, 401));
+    }
+    if (error.message.includes('Password lama wajib')) {
+      return res.status(400).json(ApiResponse.error('Password lama wajib diisi', null, 400));
+    }
+    if (error.message.includes('Password baru wajib')) {
+      return res.status(400).json(ApiResponse.error('Password baru wajib diisi', null, 400));
+    }
+    // Re-throw other errors to be handled by errorHandler
+    throw error;
   }
-
-  await invalidateAllDashboardCaches();
-
-  res.json(ApiResponse.success({
-    user: updatedUser
-  }, 'User berhasil diperbarui'));
 }));
 
 /**

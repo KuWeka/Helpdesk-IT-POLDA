@@ -10,11 +10,13 @@ import { Input } from '@/components/ui/input.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, Filter, RefreshCcw } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { TICKET_STATUS } from '@/lib/constants.js';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -83,10 +85,10 @@ export default function TechnicianTicketsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tiket Saya</h1>
-        <p className="text-sm text-muted-foreground mt-1">Daftar tiket yang ditugaskan kepada Anda.</p>
-      </div>
+      <SectionHeader
+        title="Tiket Saya"
+        subtitle="Daftar tiket yang ditugaskan kepada Anda."
+      />
 
       <Card className="border-border shadow-sm overflow-hidden">
         <div className="p-4 bg-muted/50 border-b space-y-4">
@@ -156,8 +158,8 @@ export default function TechnicianTicketsPage() {
         </div>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="w-[130px] px-6">ID Tiket</TableHead>
@@ -203,12 +205,11 @@ export default function TechnicianTicketsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-48 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                          <Filter className="h-6 w-6 opacity-50" />
-                        </div>
-                        <p className="font-medium text-foreground">{t('tickets.no_tickets')}</p>
-                      </div>
+                      <Empty
+                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                        title={t('tickets.no_tickets')}
+                        description="Tidak ada tiket yang cocok dengan filter saat ini."
+                      />
                     </TableCell>
                   </TableRow>
                 )}

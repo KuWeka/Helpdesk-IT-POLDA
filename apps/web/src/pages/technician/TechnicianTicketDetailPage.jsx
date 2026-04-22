@@ -6,10 +6,12 @@ import api from '@/lib/api.js';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import StatusBadge from '@/components/StatusBadge.jsx';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 import { MessageSquare, Calendar, User, MapPin, Download, AlertCircle, Phone, CheckCircle2, XCircle, FileImage as FileIcon, Activity, Loader2, FileText, Hand } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -230,7 +232,7 @@ export default function TechnicianTicketDetailPage() {
             <StatusBadge status={ticket.status} />
             <UrgencyBadge urgency={ticket.urgency} />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{ticket.title}</h1>
+          <SectionHeader title={ticket.title} />
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
@@ -362,10 +364,11 @@ export default function TechnicianTicketDetailPage() {
             </CardHeader>
             <CardContent className="p-6">
               {notes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <FileText className="h-10 w-10 mb-3 opacity-20" />
-                  <p className="italic">Belum ada catatan yang ditambahkan.</p>
-                </div>
+                <Empty
+                  variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                  title="Belum ada catatan"
+                  description="Belum ada catatan yang ditambahkan."
+                />
               ) : (
                 <div className="space-y-5">
                   {notes.map(note => (

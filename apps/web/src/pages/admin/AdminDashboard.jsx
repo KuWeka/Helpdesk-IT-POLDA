@@ -8,11 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart.jsx';
-import { Ticket, Users, CheckCircle2, Clock, PlayCircle, BarChart3 } from 'lucide-react';
+import { Ticket, Users, CheckCircle2, Clock, PlayCircle, BarChart3, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
 import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import InsightCard from '@/components/InsightCard.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Tooltip, ResponsiveContainer } from 'recharts';
 
 const chartConfig = {
   total: {
@@ -43,6 +46,10 @@ export default function AdminDashboard() {
   });
   
   const [chartData, setChartData] = useState([]);
+  const [ticketTrendData, setTicketTrendData] = useState([]);
+  const [slaCompliance, setSlaCompliance] = useState(0);
+  const [agingTickets, setAgingTickets] = useState(0);
+  const [urgentTickets, setUrgentTickets] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
@@ -71,6 +78,48 @@ export default function AdminDashboard() {
 
       setChartData(payload.chartData || []);
 
+      const pendingData = payload.tables?.pending || [];
+      const prosesData = payload.tables?.proses || [];
+      const selesaiData = payload.tables?.selesai || [];
+      const allDashboardTickets = [...pendingData, ...prosesData, ...selesaiData];
+
+      const now = Date.now();
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+      const agingCount = [...pendingData, ...prosesData].filter((tk) => {
+        const createdAt = tk.created_at || tk.created;
+        const createdTs = createdAt ? new Date(createdAt).getTime() : null;
+        if (!createdTs || Number.isNaN(createdTs)) return false;
+        return now - createdTs > threeDaysMs;
+      }).length;
+
+      const urgentCount = [...pendingData, ...prosesData].filter((tk) => {
+        const urgency = String(tk.urgency || '').toLowerCase();
+        return urgency.includes('tinggi') || urgency.includes('urgent') || urgency.includes('critical') || urgency.includes('kritis') || urgency.includes('high');
+      }).length;
+
+      const totalTickets = payload.stats?.total || 0;
+      const doneTickets = payload.stats?.selesai || 0;
+      const slaPct = totalTickets > 0 ? Math.round((doneTickets / totalTickets) * 100) : 0;
+
+      const dayMap = new Map();
+      allDashboardTickets.forEach((tk) => {
+        const createdAt = tk.created_at || tk.created;
+        if (!createdAt) return;
+        const date = new Date(createdAt);
+        if (Number.isNaN(date.getTime())) return;
+        const key = format(date, 'dd MMM');
+        dayMap.set(key, (dayMap.get(key) || 0) + 1);
+      });
+
+      const trend = Array.from(dayMap.entries())
+        .map(([date, count]) => ({ date, count }))
+        .slice(-8);
+
+      setAgingTickets(agingCount);
+      setUrgentTickets(urgentCount);
+      setSlaCompliance(slaPct);
+      setTicketTrendData(trend);
+
     } catch (err) {
       console.error('Error fetching admin dashboard:', err);
     } finally {
@@ -84,8 +133,8 @@ export default function AdminDashboard() {
         <CardTitle className="text-base font-semibold">{title}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className={`${items.length > 0 ? 'max-h-[280px] overflow-y-auto' : ''}`}>
-          <Table>
+        <div className={`${items.length > 0 ? 'max-h-[280px] overflow-y-auto' : ''} overflow-x-auto rounded-lg border border-border`}>
+          <Table className="min-w-full">
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="px-4">ID & Judul</TableHead>
@@ -133,12 +182,11 @@ export default function AdminDashboard() {
             ) : (
               <TableRow>
                 <TableCell colSpan={isProsesOrSelesai ? 6 : 5} className="py-8 text-center">
-                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <svg className="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    <p className="text-sm">{t('tickets.no_tickets', 'Tidak ada tiket')}</p>
-                  </div>
+                  <Empty
+                    variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                    title={t('tickets.no_tickets', 'Tidak ada tiket')}
+                    description="Belum ada data untuk ditampilkan pada bagian ini."
+                  />
                 </TableCell>
               </TableRow>
             )}
@@ -151,11 +199,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.admin_title', 'Dashboard Admin')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t('dashboard.hello', 'Halo')}, <span className="font-semibold text-foreground">{currentUser?.name}</span></p>
-      </div>
+      <SectionHeader
+        title={t('dashboard.admin_title', 'Dashboard Admin')}
+        subtitle={`${t('dashboard.hello', 'Halo')}, ${currentUser?.name || 'Admin'}`}
+      />
 
+
+      {/* Summary Cards */}
       {isLoading ? (
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -192,6 +242,50 @@ export default function AdminDashboard() {
           ))}
         </div>
       )}
+
+      {/* Insight Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+        <InsightCard title="Tren Tiket Bulan Ini" icon={TrendingUp} isLoading={isLoading}>
+          {ticketTrendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={ticketTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <Empty
+              variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+              title="Data tren belum tersedia"
+              description="Belum ada data trend untuk ditampilkan"
+            />
+          )}
+        </InsightCard>
+
+        <InsightCard title="SLA Penyelesaian" icon={ShieldCheck} isLoading={isLoading}>
+          <div className="flex items-center gap-4">
+            <div className="text-3xl font-bold text-primary">{slaCompliance}%</div>
+            <div className="text-sm text-muted-foreground">tiket berhasil diselesaikan dari total tiket</div>
+          </div>
+        </InsightCard>
+
+        <InsightCard title="Aging Tiket" icon={Timer} isLoading={isLoading}>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-amber-600">{agingTickets}</div>
+            <p className="text-sm text-muted-foreground">Tiket lebih dari 3 hari belum selesai</p>
+          </div>
+        </InsightCard>
+
+        <InsightCard title="Prioritas Hari Ini" icon={Flame} isLoading={isLoading}>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-red-600">{urgentTickets}</div>
+            <p className="text-sm text-muted-foreground">Tiket prioritas tinggi yang perlu aksi cepat</p>
+          </div>
+        </InsightCard>
+      </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 space-y-6">
@@ -230,8 +324,12 @@ export default function AdminDashboard() {
                   </BarChart>
                 </ChartContainer>
               ) : (
-                <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-                  Belum ada data tiket selesai bulan ini.
+                <div className="h-[280px]">
+                  <Empty
+                    variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                    title="Belum ada data"
+                    description="Belum ada data tiket selesai bulan ini."
+                  />
                 </div>
               )}
             </CardContent>

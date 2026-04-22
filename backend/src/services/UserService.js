@@ -159,6 +159,43 @@ class UserService {
    * Update user
    */
   static async updateUser(id, updateData) {
+    // Handle password update with security
+    if (updateData.password || updateData.oldPassword) {
+      if (!updateData.oldPassword) {
+        throw new Error('Password lama wajib diisi untuk mengubah password');
+      }
+      if (!updateData.password) {
+        throw new Error('Password baru wajib diisi');
+      }
+
+      // Get current user to verify old password
+      const [rows] = await pool.query(
+        'SELECT password_hash FROM users WHERE id = ?',
+        [id]
+      );
+
+      if (rows.length === 0) {
+        throw new Error('User tidak ditemukan');
+      }
+
+      const currentPasswordHash = rows[0].password_hash;
+
+      // Verify old password
+      const isOldPasswordValid = await bcrypt.compare(updateData.oldPassword, currentPasswordHash);
+      if (!isOldPasswordValid) {
+        throw new Error('Password lama tidak sesuai');
+      }
+
+      // Hash new password
+      const passwordHash = await bcrypt.hash(updateData.password, 10);
+      updateData.password_hash = passwordHash;
+    }
+
+    // Remove oldPassword from updateData if present (don't store in DB)
+    delete updateData.oldPassword;
+    // Remove plain password from updateData (we use password_hash)
+    delete updateData.password;
+
     const fields = [];
     const params = [];
 

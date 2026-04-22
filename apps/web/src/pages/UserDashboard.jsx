@@ -5,13 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import api from '@/lib/api.js';
 import { Button } from '@/components/ui/button.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
-import { MessageSquare, PlusCircle, ArrowRight, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty.jsx';
+import { MessageSquare, PlusCircle, ArrowRight, AlertCircle, Clock, CheckCircle2, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import StatusBadge from '@/components/StatusBadge.jsx';
+import InsightCard from '@/components/InsightCard.jsx';
 import { format } from 'date-fns';
-import { TICKET_STATUS } from '@/lib/constants.js';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -34,22 +37,52 @@ export default function UserDashboard() {
   const [stats, setStats] = useState({ pending: 0, proses: 0, selesai: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [userDivision, setUserDivision] = useState('');
+  const [ticketTrendData, setTicketTrendData] = useState([]);
+  const [slaCompliance, setSlaCompliance] = useState(0);
+  const [agingTickets, setAgingTickets] = useState(0);
+  const [urgentTickets, setUrgentTickets] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const res = await api.get('/tickets');
-        const allData = extractItems(res.data);
-        
-        setTickets(allData.slice(0, 10));
+        const [summaryRes, ticketsRes] = await Promise.all([
+          api.get('/tickets/summary', {
+            params: {
+              role: 'user',
+              userId: currentUser.id,
+              dashboardType: 'user'
+            }
+          }),
+          api.get('/tickets', {
+            params: {
+              page: 1,
+              perPage: 10,
+              sort: 'created_at',
+              order: 'desc'
+            }
+          })
+        ]);
 
-        const newStats = { pending: 0, proses: 0, selesai: 0 };
-        allData.forEach(tk => {
-          if (tk.status === TICKET_STATUS.PENDING) newStats.pending++;
-          if (tk.status === TICKET_STATUS.PROSES) newStats.proses++;
-          if (tk.status === TICKET_STATUS.SELESAI) newStats.selesai++;
+        const summaryPayload = summaryRes.data?.data?.summary || summaryRes.data?.summary || {};
+        setStats({
+          pending: Number(summaryPayload.pending || 0),
+          proses: Number(summaryPayload.proses || 0),
+          selesai: Number(summaryPayload.selesai || 0)
         });
-        setStats(newStats);
+        setSlaCompliance(Number(summaryPayload.sla_compliance || 0));
+        setAgingTickets(Number(summaryPayload.aging_count || 0));
+        setUrgentTickets(Number(summaryPayload.urgent_count || 0));
+
+        const trendRows = Array.isArray(summaryPayload.trend) ? summaryPayload.trend : [];
+        setTicketTrendData(
+          trendRows.map((item) => ({
+            date: safeFormatDate(item.date, 'dd MMM'),
+            count: Number(item.count || 0)
+          }))
+        );
+
+        const recentTickets = extractItems(ticketsRes.data);
+        setTickets(recentTickets);
 
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -67,7 +100,11 @@ export default function UserDashboard() {
     <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-8 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.user_title', 'Dashboard User')}</h1>
+          <SectionHeader
+            title={t('dashboard.user_title', 'Dashboard User')}
+            subtitle={currentUser?.division ? `Divisi: ${currentUser.division}` : undefined}
+            actions={null}
+          />
           <p className="text-sm text-muted-foreground mt-1">
             {t('dashboard.hello', 'Halo')}, <span className="font-medium text-foreground">{currentUser?.name}</span>
             {userDivision && <span> dari <span className="font-medium text-foreground">{userDivision}</span></span>}
@@ -89,6 +126,8 @@ export default function UserDashboard() {
         </div>
       </div>
 
+
+      {/* Summary Cards */}
       {isLoading ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -123,6 +162,46 @@ export default function UserDashboard() {
         </div>
       )}
 
+      {/* Insight Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+        <InsightCard title="Tren Tiket Bulan Ini" icon={TrendingUp} isLoading={isLoading}>
+          {ticketTrendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={ticketTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-muted-foreground">Tidak ada data trend untuk ditampilkan</p>
+          )}
+        </InsightCard>
+
+        <InsightCard title="SLA Penyelesaian" icon={ShieldCheck} isLoading={isLoading}>
+          <div className="flex items-center gap-4">
+            <div className="text-3xl font-bold text-primary">{slaCompliance}%</div>
+            <div className="text-sm text-muted-foreground">dari tiket berhasil diselesaikan</div>
+          </div>
+        </InsightCard>
+
+        <InsightCard title="Aging Tiket" icon={Timer} isLoading={isLoading}>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-amber-600">{agingTickets}</div>
+            <p className="text-sm text-muted-foreground">Tiket lebih dari 3 hari belum selesai</p>
+          </div>
+        </InsightCard>
+
+        <InsightCard title="Prioritas Hari Ini" icon={Flame} isLoading={isLoading}>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold text-red-600">{urgentTickets}</div>
+            <p className="text-sm text-muted-foreground">Tiket prioritas tinggi menunggu penanganan</p>
+          </div>
+        </InsightCard>
+      </div>
+
       <Card className="border-border bg-card/95 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="text-xl">Tiket Terkini</CardTitle>
@@ -131,8 +210,8 @@ export default function UserDashboard() {
           </Link>
         </CardHeader>
         <CardContent>
-          <div className="rounded-xl border border-border overflow-hidden">
-            <Table>
+          <div className="rounded-xl border border-border overflow-x-auto">
+            <Table className="min-w-full">
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead>ID Tiket</TableHead>
@@ -180,8 +259,16 @@ export default function UserDashboard() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                      {t('tickets.no_tickets', 'Tidak ada tiket')}
+                    <TableCell colSpan={6} className="h-32 text-center">
+                      <Empty>
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <AlertCircle className="h-6 w-6 opacity-50" />
+                          </EmptyMedia>
+                          <EmptyTitle>{t('tickets.no_tickets', 'Tidak ada tiket')}</EmptyTitle>
+                          <EmptyDescription>Belum ada tiket yang dilaporkan.</EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
                     </TableCell>
                   </TableRow>
                 )}

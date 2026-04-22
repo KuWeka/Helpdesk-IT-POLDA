@@ -3,10 +3,13 @@
 Tanggal: 2026-04-21
 Tujuan: Menyediakan fase eksekusi UI yang terstruktur, terukur, dan siap dikerjakan bertahap.
 
+
 ## Status Eksekusi
 
 - Fase 1 (Design Foundation): Completed
-- Fase 2-7: Not Started
+- Fase 2 (App Shell & Navigation): Completed (lihat 01_PHASE_2_EXECUTION_LOG.md)
+- Fase 3 (Form System & Validation): Completed (lihat 01_PHASE_3_EXECUTION_LOG.md)
+- Fase 4-7: Not Started
 
 ## Prinsip Prioritas
 
@@ -57,64 +60,35 @@ Estimasi:
 ## Fase 3 - Form System & Validation UX
 
 Fokus:
-- Standarisasi form dengan pola komponen yang konsisten.
-- Error/help text/disabled/loading state seragam.
-- Perbaikan UX input sensitif (password, upload, select options).
 
 Deliverable:
-- Form pattern baku (label, description, error, helper).
-- Refactor halaman prioritas: Login, Signup, Create Ticket, Settings, modal edit user/teknisi.
-- Validasi visual konsisten untuk semua skenario gagal/sukses.
 
 Definition of Done:
-- Tidak ada form ad-hoc pada halaman prioritas.
-- Error state terlihat jelas dan informatif.
-- Alur submit form tidak membingungkan user.
 
 Estimasi:
-- 3 hari.
 
 ## Fase 4 - Data Surfaces (Table, Empty, Loading, Error)
 
 Fokus:
-- Konsistensi tabel, filter, search, badge status, row action.
-- Empty state dan skeleton state yang informatif.
-- Error panel inline untuk fetch failure + retry action.
 
 Deliverable:
-- Template tabel baku untuk semua halaman data-heavy.
-- Empty state + skeleton + error state reusable.
-- Pola pagination/filter/search seragam.
 
 Definition of Done:
-- Tidak ada halaman tabel tanpa loading/empty/error state.
-- Semua status/urgency ditampilkan dengan pola badge konsisten.
-- Waktu pemahaman halaman oleh user menurun (lebih cepat memahami konteks).
 
 Estimasi:
-- 3 hari.
 
-## Fase 5 - Dashboard Insight Upgrade
+## Fase 5 - Dashboard Insight Upgrade [01_PHASE_5_EXECUTION_LOG.md](./01_PHASE_5_EXECUTION_LOG.md)
 
 Fokus:
-- Ubah dashboard dari sekadar list menjadi insight-driven.
-- Tambahkan trend, SLA indicator, aging buckets, prioritas harian.
-- Konsistensi visual chart dan summary cards.
 
 Deliverable:
-- Dashboard role-based dengan card insight yang relevan.
-- Komponen chart dan legend yang seragam.
-- Section "Perlu perhatian hari ini" untuk action cepat.
 
 Definition of Done:
-- User bisa mengambil keputusan prioritas tanpa membuka banyak halaman.
-- Ringkasan performa dan anomali terlihat dalam 5-10 detik pertama.
-- Chart dan card memiliki teks penjelas yang jelas.
 
 Estimasi:
-- 3 hari.
 
-## Fase 6 - Conversation UX (Chat & Ticket Detail)
+
+## Fase 6 - Conversation UX (Chat & Ticket Detail) [01_PHASE_6_EXECUTION_LOG.md](./01_PHASE_6_EXECUTION_LOG.md)
 
 Fokus:
 - Perbaikan bubble chat, composer, attachment preview, read status.
@@ -134,7 +108,10 @@ Definition of Done:
 Estimasi:
 - 2 hari.
 
-## Fase 7 - Final Polish, Accessibility, and QA UI
+
+## Fase 7 - Final Polish, Accessibility, and QA UI [01_PHASE_7_EXECUTION_LOG.md](./01_PHASE_7_EXECUTION_LOG.md)
+
+Referensi checklist stabilisasi parser/syntax: [PHASE_7_CHECKLIST.md](./PHASE_7_CHECKLIST.md)
 
 Fokus:
 - Micro-interaction seperlunya (bukan berlebihan).

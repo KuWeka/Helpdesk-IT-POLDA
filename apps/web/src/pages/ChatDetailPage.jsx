@@ -22,6 +22,7 @@ export default function ChatDetailPage() {
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -179,6 +180,19 @@ export default function ChatDetailPage() {
                   isOwnMessage={msg.sender_id === currentUser.id} 
                 />
               ))}
+              {isTyping && (
+                <div className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+                  <Avatar className="size-6">
+                    <AvatarFallback>{(currentUser?.name || 'A').charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex gap-1">
+                    <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                  <span>Anda sedang mengetik...</span>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -189,6 +203,7 @@ export default function ChatDetailPage() {
         <MessageInput 
           onSend={handleSendMessage} 
           isClosed={isClosed} 
+          onTypingChange={setIsTyping}
         />
       </Card>
     </div>

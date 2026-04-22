@@ -10,10 +10,7 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import {
   Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
+  EMPTY_STATE_VARIANTS,
 } from '@/components/ui/empty.jsx';
 import { Search, RefreshCcw, Eye, Trash2, Loader2, Inbox } from 'lucide-react';
 import {
@@ -29,6 +26,7 @@ import {
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import ChatDetailReadOnly from '@/components/ChatDetailReadOnly.jsx';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -186,10 +184,10 @@ export default function ChatMonitoringPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Monitoring Chat</h1>
-        <p className="text-sm text-muted-foreground mt-1">Pantau percakapan antara Pelapor dan Teknisi.</p>
-      </div>
+      <SectionHeader
+        title="Monitoring Chat"
+        subtitle="Pantau percakapan antara Pelapor dan Teknisi."
+      />
 
       <Card className="border-border shadow-sm overflow-hidden flex-1 flex flex-col">
         <div className="p-4 bg-muted/50 border-b flex flex-wrap gap-4 shrink-0">
@@ -205,7 +203,8 @@ export default function ChatMonitoringPage() {
         </div>
         
         <CardContent className="p-0 flex-1 overflow-auto">
-          <Table>
+          <div className="overflow-x-auto rounded-lg border border-border">
+          <Table className="min-w-full">
             <TableHeader className="bg-muted/30 sticky top-0 z-10">
               <TableRow>
                 <TableHead className="px-6">Pelapor</TableHead>
@@ -251,20 +250,18 @@ export default function ChatMonitoringPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-56">
-                    <Empty className="border-0 shadow-none">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <Inbox />
-                        </EmptyMedia>
-                        <EmptyTitle>Tidak ada chat</EmptyTitle>
-                        <EmptyDescription>Belum ada percakapan yang cocok dengan filter saat ini.</EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
+                    <Empty
+                      className="border-0 shadow-none"
+                      variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                      title="Tidak ada chat"
+                      description="Belum ada percakapan yang cocok dengan filter saat ini."
+                    />
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

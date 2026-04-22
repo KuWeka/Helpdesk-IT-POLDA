@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.jsx'
 import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
+import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, MessageSquarePlus, MessageSquare, ArrowLeft } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import NewChatModal from '@/components/NewChatModal.jsx';
@@ -38,6 +39,7 @@ export default function ChatListPage() {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [showListOnMobile, setShowListOnMobile] = useState(true);
   const messagesEndRef = useRef(null);
   const activeChatIdRef = useRef(null);
@@ -255,18 +257,16 @@ export default function ChatListPage() {
               })}
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <MessageSquare className="h-8 w-8 opacity-50" />
-              </div>
-              <p className="font-medium text-foreground text-lg">Belum ada percakapan</p>
-              <p className="text-sm mt-1 text-center max-w-sm">
-                Mulai chat baru untuk berkonsultasi dengan teknisi kami.
-              </p>
-              <Button onClick={() => setIsModalOpen(true)} className="mt-6" variant="outline">
-                {t('chat.new_chat')}
-              </Button>
-            </div>
+            <Empty
+              variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+              title="Belum ada percakapan"
+              description="Mulai chat baru untuk berkonsultasi dengan teknisi kami."
+              action={(
+                <Button onClick={() => setIsModalOpen(true)} variant="outline">
+                  {t('chat.new_chat')}
+                </Button>
+              )}
+            />
           )}
           </div>
         </ScrollArea>
@@ -321,9 +321,11 @@ export default function ChatListPage() {
                   <Skeleton className="h-12 w-1/2 rounded-2xl rounded-tr-sm ml-auto" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  Belum ada pesan.
-                </div>
+                <Empty
+                  variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                  title="Belum ada pesan"
+                  description="Kirim pesan pertama untuk memulai percakapan ini."
+                />
               ) : (
                 <div className="space-y-2">
                   {messages.map((msg) => (
@@ -333,6 +335,19 @@ export default function ChatListPage() {
                       isOwnMessage={msg.sender_id === currentUser.id}
                     />
                   ))}
+                  {isTyping && (
+                    <div className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+                      <Avatar className="size-6">
+                        <AvatarFallback>{(currentUser?.name || 'A').charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex gap-1">
+                        <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="size-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span>Anda sedang mengetik...</span>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -342,6 +357,7 @@ export default function ChatListPage() {
             <MessageInput
               onSend={handleSendMessage}
               isClosed={activeChat?.status === 'Closed'}
+              onTypingChange={setIsTyping}
             />
           </>
         )}

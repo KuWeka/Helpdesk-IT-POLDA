@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { toast } from 'sonner';
 import { Loader2, Save, Clock, ShieldAlert, Bell, Mail, Globe, Database } from 'lucide-react';
+import SectionHeader from '@/components/SectionHeader.jsx';
 
 export default function SystemSettingsPage() {
   const [settingsId, setSettingsId] = useState(null);
@@ -65,10 +66,10 @@ export default function SystemSettingsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-12">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Pengaturan Sistem</h1>
-        <p className="text-sm text-muted-foreground mt-1">Konfigurasi global untuk aplikasi helpdesk.</p>
-      </div>
+      <SectionHeader
+        title="Pengaturan Sistem"
+        subtitle="Konfigurasi global untuk aplikasi helpdesk."
+      />
 
       <Tabs defaultValue="jam" className="w-full flex flex-col md:flex-row gap-6">
         <TabsList className="flex flex-row md:flex-col h-auto bg-muted/30 justify-start overflow-x-auto md:w-64 shrink-0 p-2 rounded-xl border gap-1">
