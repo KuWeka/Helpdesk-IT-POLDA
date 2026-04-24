@@ -33,7 +33,7 @@ export default function TechnicianDashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   
-  const [techSettings, setTechSettings] = useState(null);
+  const [techSettings, setTechSettings] = useState({ is_active: true });
   const [stats, setStats] = useState({ pending: 0, myProses: 0, completedToday: 0, totalThisMonth: 0 });
   const [pendingTickets, setPendingTickets] = useState([]);
   const [myTickets, setMyTickets] = useState([]);

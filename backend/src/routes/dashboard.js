@@ -130,10 +130,26 @@ router.get('/admin-summary', auth, role('Admin'), async (req, res) => {
   }
 });
 
-router.get('/technician-summary', auth, role('Teknisi'), async (req, res) => {
+router.get('/technician-summary', auth, async (req, res) => {
   try {
     const startedAt = Date.now();
     const technicianId = req.user.id;
+
+    // Verify role from DB (JWT may be stale right after a role change)
+    const [[roleRow]] = await pool.query(
+      `SELECT role FROM users WHERE id = ? AND is_active = 1 LIMIT 1`,
+      [technicianId]
+    );
+    if (!roleRow || roleRow.role !== 'Teknisi') {
+      return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+
+    // Ensure technician_settings row exists and defaults to on-duty (is_active = 1)
+    await pool.query(
+      `INSERT IGNORE INTO technician_settings (user_id, is_active) VALUES (?, 1)`,
+      [technicianId]
+    );
+
     const forceRefresh = req.query.refresh === 'true';
     const cacheKey = `dashboard:technician:${technicianId}:summary`;
 

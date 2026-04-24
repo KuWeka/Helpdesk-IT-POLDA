@@ -297,6 +297,8 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
   }
 
   if (techSets.length > 0) {
+    // Ensure row exists before updating (upsert pattern)
+    await pool.query(`INSERT IGNORE INTO technician_settings (user_id, is_active) VALUES (?, 1)`, [id]);
     techArgs.push(id);
     await pool.query(`UPDATE technician_settings SET ${techSets.join(', ')} WHERE user_id = ?`, techArgs);
   }
