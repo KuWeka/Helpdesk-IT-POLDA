@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to staging server
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         env:
           API_IMAGE: ghcr.io/${{ github.repository_owner }}/helpdesk-backend:sha-${{ github.sha }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
