@@ -107,7 +107,7 @@ export default function ManageUsersPage() {
       fetchUsers();
     } catch (error) {
       console.error('Save user error:', error);
-      toast.error(error.response?.message || t('manageUsers.saveFailed', 'Failed to save data'));
+      toast.error(error.response?.data?.message || t('manageUsers.saveFailed', 'Failed to save data'));
     } finally {
       setIsSaving(false);
     }
@@ -131,7 +131,7 @@ export default function ManageUsersPage() {
       fetchUsers();
     } catch (error) {
       console.error('Error resetting role:', error);
-      toast.error(error.response?.message || 'Gagal mereset role pengguna.');
+      toast.error(error.response?.data?.message || 'Gagal mereset role pengguna.');
     }
   };
 

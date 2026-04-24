@@ -48,7 +48,8 @@ api.interceptors.request.use((config) => {
   const requiresCsrf = ['post', 'put', 'patch', 'delete'].includes(method);
 
   if (requiresCsrf) {
-    const csrfToken = getCookie('helpdesk_csrf_token');
+    // Prefer localStorage (works cross-origin), fall back to cookie (same-origin)
+    const csrfToken = localStorage.getItem('helpdesk_csrf_token') || getCookie('helpdesk_csrf_token');
     if (csrfToken) {
       config.headers['x-csrf-token'] = csrfToken;
     }
@@ -80,7 +81,11 @@ api.interceptors.response.use((response) => {
       originalRequest._retry = true;
 
       return api.post('/auth/refresh', {})
-        .then(() => {
+        .then((refreshRes) => {
+          const newCsrfToken = refreshRes.data?.data?.csrfToken;
+          if (newCsrfToken) {
+            localStorage.setItem('helpdesk_csrf_token', newCsrfToken);
+          }
           emitApiStatus(false, null);
           return api(originalRequest);
         })

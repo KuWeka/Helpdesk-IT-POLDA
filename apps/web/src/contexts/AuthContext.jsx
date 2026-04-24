@@ -44,12 +44,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post('/auth/login', { identifier, password });
       const user = res.data?.data?.user;
+      const csrfToken = res.data?.data?.csrfToken;
 
       if (!user) {
         throw new Error('Data user tidak ditemukan');
       }
 
       localStorage.setItem('helpdesk_user', JSON.stringify(user));
+      if (csrfToken) {
+        localStorage.setItem('helpdesk_csrf_token', csrfToken);
+      }
       
       setCurrentUser(user);
       
@@ -97,6 +101,7 @@ export const AuthProvider = ({ children }) => {
 
     socket.disconnect();
     localStorage.removeItem('helpdesk_user');
+    localStorage.removeItem('helpdesk_csrf_token');
     setCurrentUser(null);
     navigate('/login');
     toast.info('Anda telah logout');
