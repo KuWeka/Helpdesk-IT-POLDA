@@ -61,6 +61,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 # Copy built application
 COPY --from=build /app/src ./src
 COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/sql ./sql
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/.env.example ./.env.example
 
