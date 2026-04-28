@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import TechnicianCard from './TechnicianCard.jsx';
+import TechnicianCard from '../tickets/TechnicianCard.jsx';
 import { toast } from 'sonner';
 import { Loader2, Shuffle } from 'lucide-react';
 import { ROLES } from '@/lib/constants.js';
