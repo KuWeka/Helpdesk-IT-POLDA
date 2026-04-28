@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="apps/web/public/images/polda_kalsel.png" alt="Polda Kalsel" width="120" />
+<img src="apps/web/public/images/logo_bidtik.png" alt="Bidtik" width="120" />
 
 # 🖥️ Helpdesk IT POLDA Kalsel
 
