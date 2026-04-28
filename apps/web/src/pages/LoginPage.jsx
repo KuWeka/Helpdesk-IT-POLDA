@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form.jsx';
 import { Input } from '@/components/ui/input.jsx';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const SYSTEM_NAME = 'IT Helpdesk';
 const SYSTEM_TAGLINE = 'Sistem Pelaporan IT Polda Kalsel';

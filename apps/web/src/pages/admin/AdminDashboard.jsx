@@ -11,9 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart.jsx';
 import { Ticket, Users, CheckCircle2, Clock, PlayCircle, BarChart3, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
-import UrgencyBadge from '@/components/UrgencyBadge.jsx';
-import InsightCard from '@/components/InsightCard.jsx';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
+import InsightCard from '@/components/tickets/InsightCard.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Tooltip, ResponsiveContainer } from 'recharts';
 

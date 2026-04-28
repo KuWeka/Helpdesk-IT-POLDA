@@ -11,8 +11,8 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
-import ChatMessage from '@/components/ChatMessage.jsx';
-import MessageInput from '@/components/MessageInput.jsx';
+import ChatMessage from '@/components/chat/ChatMessage.jsx';
+import MessageInput from '@/components/chat/MessageInput.jsx';
 
 export default function ChatDetailPage() {
   const { chatId } = useParams();

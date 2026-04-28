@@ -3,9 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { Route, Routes, BrowserRouter as Router, Navigate } from 'react-router-dom';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n/config.js';
-import ScrollToTop from '@/components/ScrollToTop.jsx';
+import ScrollToTop from '@/components/common/ScrollToTop.jsx';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext.jsx';
-import ProtectedRoute from '@/components/ProtectedRoute.jsx';
+import ProtectedRoute from '@/components/common/ProtectedRoute.jsx';
 import { MainLayout } from '@/components/layout';
 
 import LoginPage from '@/pages/LoginPage.jsx';

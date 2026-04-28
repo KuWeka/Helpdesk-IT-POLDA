@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { toast } from 'sonner';
 import { Loader2, Save, User, Lock, Bell, Globe, Palette, ToggleLeft, Clock, Smartphone, Wrench, ShieldAlert } from 'lucide-react';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 import i18n from '@/i18n/config.js';
 
 export default function TechnicianSettingsPage() {

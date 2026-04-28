@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/alert-dialog.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import ChatDetailReadOnly from '@/components/ChatDetailReadOnly.jsx';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import ChatDetailReadOnly from '@/components/chat/ChatDetailReadOnly.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;

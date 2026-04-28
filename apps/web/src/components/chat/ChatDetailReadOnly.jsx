@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { ArrowLeft, User, ShieldAlert, Trash2 } from 'lucide-react';
-import ChatMessage from '@/components/ChatMessage.jsx';
+import ChatMessage from '@/components/chat/ChatMessage.jsx';
 import { format } from 'date-fns';
 
 const safeFormatDate = (value, pattern = 'dd MMM HH:mm') => {

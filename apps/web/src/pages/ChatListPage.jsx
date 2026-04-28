@@ -14,9 +14,9 @@ import { ScrollArea } from '@/components/ui/scroll-area.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, MessageSquarePlus, MessageSquare, ArrowLeft } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
-import NewChatModal from '@/components/NewChatModal.jsx';
-import ChatMessage from '@/components/ChatMessage.jsx';
-import MessageInput from '@/components/MessageInput.jsx';
+import NewChatModal from '@/components/modals/NewChatModal.jsx';
+import ChatMessage from '@/components/chat/ChatMessage.jsx';
+import MessageInput from '@/components/chat/MessageInput.jsx';
 import { toast } from 'sonner';
 
 const extractItems = (payload) => {

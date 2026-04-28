@@ -14,12 +14,12 @@ import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import { ListOrdered, CheckCircle2, Calendar, Hand, ArrowRight, Activity, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import UrgencyBadge from '@/components/UrgencyBadge.jsx';
-import InsightCard from '@/components/InsightCard.jsx';
+import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
+import InsightCard from '@/components/tickets/InsightCard.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { TICKET_STATUS } from '@/lib/constants.js';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const safeFormatDate = (value, pattern = 'dd MMM HH:mm') => {
   if (!value) return '-';

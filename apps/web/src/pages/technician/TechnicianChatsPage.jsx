@@ -15,8 +15,8 @@ import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import { Search, MessageSquare, AlertCircle, ArrowLeft, Lock } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
-import ChatMessage from '@/components/ChatMessage.jsx';
-import MessageInput from '@/components/MessageInput.jsx';
+import ChatMessage from '@/components/chat/ChatMessage.jsx';
+import MessageInput from '@/components/chat/MessageInput.jsx';
 import { toast } from 'sonner';
 
 const extractItems = (payload) => {

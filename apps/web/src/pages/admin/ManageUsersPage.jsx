@@ -29,9 +29,9 @@ import {
 import { PlusCircle, Edit, Trash2, Users, RotateCcw, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import UserEditModal from '@/components/UserEditModal.jsx';
+import UserEditModal from '@/components/modals/UserEditModal.jsx';
 import { ROLES } from '@/lib/constants.js';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;

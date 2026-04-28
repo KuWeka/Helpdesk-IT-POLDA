@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { ListOrdered, Eye } from 'lucide-react';
-import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;

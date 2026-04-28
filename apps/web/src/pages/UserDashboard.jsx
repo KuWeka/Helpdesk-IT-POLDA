@@ -5,15 +5,15 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import api from '@/lib/api.js';
 import { Button } from '@/components/ui/button.jsx';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty.jsx';
 import { MessageSquare, PlusCircle, ArrowRight, AlertCircle, Clock, CheckCircle2, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import StatusBadge from '@/components/StatusBadge.jsx';
-import InsightCard from '@/components/InsightCard.jsx';
+import StatusBadge from '@/components/tickets/StatusBadge.jsx';
+import InsightCard from '@/components/tickets/InsightCard.jsx';
 import { format } from 'date-fns';
 
 const extractItems = (payload) => {

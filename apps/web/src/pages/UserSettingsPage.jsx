@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group.jsx';
 import { toast } from 'sonner';
 import { Loader2, Save, User, Lock, Palette } from 'lucide-react';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 import i18n from '@/i18n/config.js';
 
 

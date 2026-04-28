@@ -1,6 +1,12 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build outputs
 dist/
+build/
 apps/web/.vite/
+*.tar.gz
+*.zip
 
 # Environment files
 .env
@@ -14,11 +20,10 @@ backend/.env.*
 apps/web/.env
 apps/web/.env.*
 
-# Logs
-backend/logs/*.log
-backend/logs/.*-audit.json
+# Logs — hanya digenerate di server
+backend/logs/
 
-# Uploads (user-generated files)
+# Uploads user — hanya .gitkeep yang masuk repo
 backend/uploads/*
 !backend/uploads/.gitkeep
 
@@ -30,6 +35,9 @@ CHANGELOG.md
 apps/web/docs/
 backend/artifacts/
 
-# Build archives
-app.tar.gz
+# OS & editor
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
 

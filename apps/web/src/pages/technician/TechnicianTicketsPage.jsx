@@ -12,11 +12,11 @@ import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, Filter, RefreshCcw } from 'lucide-react';
-import StatusBadge from '@/components/StatusBadge.jsx';
-import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import StatusBadge from '@/components/tickets/StatusBadge.jsx';
+import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { TICKET_STATUS } from '@/lib/constants.js';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;

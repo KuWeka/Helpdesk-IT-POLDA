@@ -30,9 +30,9 @@ import {
 } from '@/components/ui/alert-dialog.jsx';
 import { PlusCircle, Edit, Trash2, ArrowDown, MoreHorizontal, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
-import AddEditTechnicianModal from '@/components/AddEditTechnicianModal.jsx';
+import AddEditTechnicianModal from '@/components/modals/AddEditTechnicianModal.jsx';
 import { ROLES } from '@/lib/constants.js';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const extractTechnicians = (payload) => {
   if (Array.isArray(payload?.data?.technicians)) return payload.data.technicians;

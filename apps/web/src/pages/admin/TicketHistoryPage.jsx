@@ -20,10 +20,10 @@ import {
   AlertDialogTitle as AlertDialogTitleText,
 } from '@/components/ui/alert-dialog.jsx';
 import { Search, Filter, RefreshCcw, Activity, CheckCircle2, Clock, Eye, Trash2, MapPin, User, Calendar, Loader2 } from 'lucide-react';
-import StatusBadge from '@/components/StatusBadge.jsx';
-import UrgencyBadge from '@/components/UrgencyBadge.jsx';
+import StatusBadge from '@/components/tickets/StatusBadge.jsx';
+import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 import { format, differenceInDays, startOfMonth, isAfter, isEqual } from 'date-fns';
 import { toast } from 'sonner';
 

@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { toast } from 'sonner';
 import { Loader2, Save, Clock, ShieldAlert, Bell, Mail, Globe, Database } from 'lucide-react';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 export default function SystemSettingsPage() {
   const { t } = useTranslation();

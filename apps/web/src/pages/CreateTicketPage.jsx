@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { toast } from 'sonner';
 import { Loader2, UploadCloud, File as FileIcon, X } from 'lucide-react';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 export default function CreateTicketPage() {
   const { currentUser } = useAuth();

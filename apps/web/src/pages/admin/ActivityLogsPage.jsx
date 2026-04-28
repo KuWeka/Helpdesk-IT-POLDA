@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/empty.jsx';
 import { Search, RefreshCcw, Inbox } from 'lucide-react';
 import { format } from 'date-fns';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 const extractLogs = (payload) => {
   if (Array.isArray(payload?.logs)) return payload.logs;

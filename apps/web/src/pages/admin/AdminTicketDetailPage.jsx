@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
-import StatusBadge from '@/components/StatusBadge.jsx';
-import UrgencyBadge from '@/components/UrgencyBadge.jsx';
-import SectionHeader from '@/components/SectionHeader.jsx';
+import StatusBadge from '@/components/tickets/StatusBadge.jsx';
+import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
+import SectionHeader from '@/components/common/SectionHeader.jsx';
 import { ArrowLeft, Calendar, User, MapPin, AlertCircle, CheckCircle2, Trash2, UserPlus, Loader2, Download, FileImage as FileIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
