@@ -196,13 +196,13 @@ app.use((req, res, next) => {
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const ticketRoutes = require('./routes/tickets');
-const chatRoutes = require('./routes/chats');
 const technicianRoutes = require('./routes/technicians');
 const dashboardRoutes = require('./routes/dashboard');
 const uploadRoutes = require('./routes/uploads');
 const settingRoutes = require('./routes/settings');
-const messageRoutes = require('./routes/messages');
 const healthRoutes = require('./routes/health');
+const padalShiftRoutes = require('./routes/padal-shifts');
+const reportRoutes = require('./routes/reports');
 
 // Initialize audit logging
 const auditLogger = require('./utils/auditLogger');
@@ -220,13 +220,13 @@ if (NODE_ENV !== 'test') {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
-app.use('/api/chats', chatRoutes);
 app.use('/api/technicians', technicianRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/settings', settingRoutes);
-app.use('/api/messages', messageRoutes);
 app.use('/api/health', healthRoutes);
+app.use('/api/padal-shifts', padalShiftRoutes);
+app.use('/api/reports', reportRoutes);
 
 // ===== 404 HANDLER =====
 app.use((req, res) => {

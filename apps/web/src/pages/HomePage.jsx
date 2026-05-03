@@ -13,11 +13,13 @@ export default function HomePage() {
         }
 
         const dashboardPath =
-            currentUser.role === 'Admin'
-                ? '/admin/dashboard'
-                : currentUser.role === 'Teknisi'
-                    ? '/technician/dashboard'
-                    : '/user/dashboard';
+            currentUser.role === 'Subtekinfo'
+                ? '/subtekinfo/dashboard'
+                : currentUser.role === 'Padal'
+                    ? '/padal/dashboard'
+                    : currentUser.role === 'Teknisi'
+                        ? '/teknisi/tickets'
+                        : '/satker/dashboard';
 
         navigate(dashboardPath, { replace: true });
     }, [currentUser, navigate]);

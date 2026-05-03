@@ -63,7 +63,6 @@ const swaggerDefinition = {
           ticket_number: { type: 'string', example: 'TKT-202604-0001' },
           title: { type: 'string', example: 'Laptop tidak bisa booting' },
           description: { type: 'string', example: 'Laptop tiba-tiba mati dan tidak bisa dinyalakan' },
-          urgency: { type: 'string', enum: ['Low', 'Medium', 'High', 'Critical'], example: 'High' },
           status: { type: 'string', enum: ['Open', 'In Progress', 'Resolved', 'Closed'], example: 'Open' },
           category: { type: 'string', example: 'Hardware' },
           user_id: { type: 'string', format: 'uuid' },

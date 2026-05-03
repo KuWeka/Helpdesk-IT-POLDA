@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/alert-dialog.jsx';
 import { Search, Filter, RefreshCcw, Activity, CheckCircle2, Clock, Eye, Trash2, MapPin, User, Calendar, Loader2 } from 'lucide-react';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
 import { format, differenceInDays, startOfMonth, isAfter, isEqual } from 'date-fns';
@@ -54,7 +53,6 @@ export default function TicketHistoryPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Selesai');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
   const [techFilter, setTechFilter] = useState('all');
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -63,7 +61,7 @@ export default function TicketHistoryPage() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
-    api.get('/users', { params: { role: 'Teknisi', sort: 'name', order: 'asc', perPage: 200 } })
+    api.get('/users', { params: { role: 'Teknisi', sort: 'name', order: 'asc', perPage: 100 } })
       .then(({ data }) => setTechnicians(extractItems(data)))
       .catch(console.error);
     fetchAnalytics();
@@ -106,7 +104,6 @@ export default function TicketHistoryPage() {
     try {
       let filterStr = `(status="Selesai" || status="Dibatalkan" || status="Ditolak")`;
       if (statusFilter !== 'all') filterStr = `status = "${statusFilter}"`;
-      if (urgencyFilter !== 'all') filterStr += ` && urgency = "${urgencyFilter}"`;
       if (techFilter !== 'all') filterStr += ` && assigned_technician_id = "${techFilter}"`;
       if (searchTerm) filterStr += ` && (title ~ "${searchTerm}" || ticket_number ~ "${searchTerm}")`;
 
@@ -115,7 +112,6 @@ export default function TicketHistoryPage() {
           page: 1,
           perPage: 50,
           status: statusFilter !== 'all' ? statusFilter : undefined,
-          urgency: urgencyFilter !== 'all' ? urgencyFilter : undefined,
           technician_id: techFilter !== 'all' ? techFilter : undefined,
           search: searchTerm || undefined
         }
@@ -129,7 +125,7 @@ export default function TicketHistoryPage() {
     }
   };
 
-  useEffect(() => { fetchTickets(); }, [searchTerm, statusFilter, urgencyFilter, techFilter]);
+  useEffect(() => { fetchTickets(); }, [searchTerm, statusFilter, techFilter]);
 
   const handleOpenDetail = (ticket) => {
     setSelectedTicket(ticket);
@@ -141,21 +137,6 @@ export default function TicketHistoryPage() {
     
     setIsDeleting(true);
     try {
-      const { data: chatsRes } = await api.get('/chats', { 
-        params: { filter: `ticket_id="${selectedTicket.id}"`, perPage: 500 } 
-      });
-
-      for (const chat of (chatsRes?.items || [])) {
-        const { data: messagesRes } = await api.get('/messages', { 
-          params: { filter: `chat_id="${chat.id}"`, perPage: 1000 } 
-        });
-        
-        for (const msg of (messagesRes?.items || [])) {
-          await api.delete(`/messages/${msg.id}`);
-        }
-        await api.delete(`/chats/${chat.id}`);
-      }
-
       await api.delete(`/tickets/${selectedTicket.id}`);
       
       toast.success(t('ticketHistory.deleteSuccess', 'Ticket and related data deleted successfully'));
@@ -202,7 +183,6 @@ export default function TicketHistoryPage() {
                 <TableRow>
                   <TableHead className="px-6">{t('common.titleAndId', 'Title & ID')}</TableHead>
                   <TableHead>{t('common.status', 'Status')}</TableHead>
-                  <TableHead>{t('common.urgency', 'Urgency')}</TableHead>
                   <TableHead>{t('roles.technician', 'Technician')}</TableHead>
                   <TableHead>{t('ticketHistory.closedDate', 'Closed Date')}</TableHead>
                   <TableHead>{t('ticketHistory.duration', 'Duration')}</TableHead>
@@ -211,7 +191,7 @@ export default function TicketHistoryPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center h-24">{t('common.processing', 'Processing...')}</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center h-24">{t('common.processing', 'Processing...')}</TableCell></TableRow>
                 ) : tickets.length > 0 ? (
                   tickets.map((ticket) => {
                     const closedDate = safeDate(ticket.closed_at);
@@ -224,8 +204,7 @@ export default function TicketHistoryPage() {
                           <div className="text-xs text-muted-foreground font-mono">{ticket.ticket_number}</div>
                         </TableCell>
                         <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                        <TableCell><UrgencyBadge urgency={ticket.urgency} /></TableCell>
-                        <TableCell className="text-sm">{ticket.technician_name || ticket.assigned_technician_id || '-'}</TableCell>
+                        <TableCell className="text-sm">{ticket.padal_name || '-'}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{safeFormat(ticket.closed_at)}</TableCell>
                         <TableCell className="text-sm">{days === null ? '-' : (days > 0 ? `${days} hari` : '< 1 hari')}</TableCell>
                         <TableCell className="text-right px-6">
@@ -238,7 +217,7 @@ export default function TicketHistoryPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32">
+                    <TableCell colSpan={6} className="h-32">
                       <Empty
                         variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
                         title={t('ticketHistory.emptyTitle', 'No history')}
@@ -266,7 +245,6 @@ export default function TicketHistoryPage() {
                   {selectedTicket.ticket_number}
                 </span>
                 <StatusBadge status={selectedTicket.status} />
-                <UrgencyBadge urgency={selectedTicket.urgency} />
               </div>
               
               <div>
@@ -305,8 +283,8 @@ export default function TicketHistoryPage() {
 
               <div className="pt-4 border-t">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">Teknisi Penanggung Jawab:</span>
-                  <span className="text-muted-foreground">{selectedTicket.technician_name || selectedTicket.assigned_technician_id || '-'}</span>
+                    <span className="font-medium">Padal Penanggung Jawab:</span>
+                    <span className="text-muted-foreground">{selectedTicket.padal_name || '-'}</span>
                 </div>
               </div>
             </div>
@@ -334,7 +312,7 @@ export default function TicketHistoryPage() {
           <AlertDialogHeader>
             <AlertDialogTitleText>Konfirmasi Hapus Tiket</AlertDialogTitleText>
             <AlertDialogDescriptionText>
-              Hapus tiket ini? Semua data terkait chat dan pesan juga akan dihapus. Tindakan ini tidak dapat dibatalkan.
+              Hapus tiket ini? Semua data terkait tiket juga akan dihapus. Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescriptionText>
           </AlertDialogHeader>
           <AlertDialogFooter>

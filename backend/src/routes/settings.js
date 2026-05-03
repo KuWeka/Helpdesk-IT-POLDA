@@ -37,7 +37,7 @@ router.get('/', asyncHandler(async (req, res) => {
  * Body: { app_name?, app_description?, maintenance_mode? }
  */
 router.patch('/', auth, role('Admin'), asyncHandler(async (req, res) => {
-  const { app_name, app_description, maintenance_mode } = req.body;
+  const { app_name, app_description, maintenance_mode, whatsapp_number } = req.body;
 
   const errors = [];
 
@@ -53,6 +53,12 @@ router.patch('/', auth, role('Admin'), asyncHandler(async (req, res) => {
     const validation = validateInputLength(app_description.toString(), 0, 500);
     if (!validation.isValid) {
       errors.push('Deskripsi aplikasi ' + validation.error);
+    }
+  }
+
+  if (whatsapp_number !== undefined && whatsapp_number !== null && whatsapp_number !== '') {
+    if (!/^[0-9]{8,20}$/.test(whatsapp_number.toString())) {
+      errors.push('Nomor WhatsApp harus berupa angka 8-20 digit (tanpa tanda + atau spasi)');
     }
   }
 
@@ -81,6 +87,11 @@ router.patch('/', auth, role('Admin'), asyncHandler(async (req, res) => {
   if (maintenance_mode !== undefined) {
     querySets.push('maintenance_mode = ?');
     queryArgs.push(maintenance_mode ? 1 : 0);
+  }
+
+  if (whatsapp_number !== undefined) {
+    querySets.push('whatsapp_number = ?');
+    queryArgs.push(whatsapp_number === null || whatsapp_number === '' ? null : whatsapp_number.toString().trim());
   }
 
   if (querySets.length === 0) {

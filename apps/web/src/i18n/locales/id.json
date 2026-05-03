@@ -36,7 +36,7 @@
   "roles": {
     "admin": "Admin",
     "user": "User",
-    "technician": "Teknisi"
+    "technician": "Padal"
   },
   "chat": {
     "new_chat": "Chat Baru",
@@ -74,8 +74,8 @@
       "Antrian Tiket": "Antrian Tiket",
       "Semua Tiket": "Semua Tiket",
       "Riwayat Tiket": "Riwayat Tiket",
-      "Kelola User": "Kelola User",
-      "Kelola Teknisi": "Kelola Teknisi",
+      "Kelola Akun": "Kelola Akun",
+      "Kelola Padal": "Kelola Padal",
       "Monitoring Chat": "Monitoring Chat",
       "Log Aktivitas": "Log Aktivitas",
       "Pengaturan Sistem": "Pengaturan Sistem"
@@ -108,7 +108,6 @@
     "titleAndId": "Judul & ID",
     "status": "Status",
     "sort": "Urutkan",
-    "urgency": "Urgensi",
     "newest": "Terbaru",
     "oldest": "Tertua",
     "from": "Dari",
@@ -175,7 +174,6 @@
     "createNew": "Buat Tiket Baru",
     "searchPlaceholder": "Cari ID tiket atau judul...",
     "allStatus": "Semua Status",
-    "sortUrgencyDesc": "Darurat -> Rendah",
     "completedFirst": "Selesai Dulu",
     "unassigned": "Belum ditugaskan",
     "emptyTitle": "Tidak ada tiket ditemukan",
@@ -185,8 +183,7 @@
     "tickets": "tiket"
   },
   "techTickets": {
-    "subtitle": "Daftar tiket yang ditugaskan kepada Anda.",
-    "allUrgency": "Semua Urgensi"
+    "subtitle": "Daftar tiket yang ditugaskan kepada Anda."
   },
   "techQueue": {
     "loadFailed": "Gagal memuat antrian tiket. Silakan coba lagi.",
@@ -196,7 +193,7 @@
   },
   "adminTickets": {
     "subtitle": "Kelola dan pantau seluruh tiket bantuan dalam sistem.",
-    "allTechnicians": "Semua Teknisi",
+    "allTechnicians": "Semua Padal",
     "deleteTitle": "Hapus Tiket",
     "deleteFailed": "Gagal menghapus tiket"
   },
@@ -251,7 +248,7 @@
     "downgradeFailed": "Gagal menurunkan role teknisi",
     "deleteSuccess": "Akun teknisi berhasil dihapus permanen",
     "deleteFailed": "Gagal menghapus akun teknisi",
-    "addTechnician": "Tambah Teknisi",
+    "addTechnician": "Tambah Padal",
     "nameInfo": "Nama & Info",
     "contact": "Kontak",
     "active": "Aktif",

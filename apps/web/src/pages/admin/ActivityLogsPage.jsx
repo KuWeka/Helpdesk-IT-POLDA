@@ -101,7 +101,6 @@ export default function ActivityLogsPage() {
               <SelectItem value="Tiket">{t('common.ticket', 'Ticket')}</SelectItem>
               <SelectItem value="User">User</SelectItem>
               <SelectItem value="Teknisi">Teknisi</SelectItem>
-              <SelectItem value="Chat">Chat</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -14,7 +14,7 @@ const sendDashboardResponse = (res, payload, cacheStatus, startedAt, operation) 
   return res.json(payload);
 };
 
-router.get('/admin-summary', auth, role('Admin'), async (req, res) => {
+router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
   try {
     const startedAt = Date.now();
     const forceRefresh = req.query.refresh === 'true';
@@ -51,7 +51,7 @@ router.get('/admin-summary', auth, role('Admin'), async (req, res) => {
       `),
       pool.query('SELECT count(*) as count FROM users'),
       pool.query(`
-        SELECT t.id, t.ticket_number, t.title, t.urgency, t.created_at,
+        SELECT t.id, t.ticket_number, t.title, t.created_at,
                u.name as reporter_name, tech.name as technician_name
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
@@ -61,7 +61,7 @@ router.get('/admin-summary', auth, role('Admin'), async (req, res) => {
         LIMIT 10
       `),
       pool.query(`
-        SELECT t.id, t.ticket_number, t.title, t.urgency, t.created_at,
+        SELECT t.id, t.ticket_number, t.title, t.created_at,
                u.name as reporter_name, tech.name as technician_name
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
@@ -71,7 +71,7 @@ router.get('/admin-summary', auth, role('Admin'), async (req, res) => {
         LIMIT 10
       `),
       pool.query(`
-        SELECT t.id, t.ticket_number, t.title, t.urgency, t.created_at, t.closed_at,
+        SELECT t.id, t.ticket_number, t.title, t.created_at, t.closed_at,
                u.name as reporter_name, tech.name as technician_name
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
@@ -175,7 +175,7 @@ router.get('/technician-summary', auth, async (req, res) => {
         FROM tickets
       `, [technicianId, technicianId, technicianId]),
       pool.query(`
-        SELECT t.id, t.ticket_number, t.title, t.urgency, t.created_at,
+        SELECT t.id, t.ticket_number, t.title, t.created_at,
                u.name as reporter_name, tech.name as technician_name
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
@@ -185,7 +185,7 @@ router.get('/technician-summary', auth, async (req, res) => {
         LIMIT 10
       `),
       pool.query(`
-        SELECT t.id, t.ticket_number, t.title, t.urgency, t.created_at,
+        SELECT t.id, t.ticket_number, t.title, t.created_at,
                u.name as reporter_name, tech.name as technician_name
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
@@ -255,7 +255,7 @@ router.get('/technician-summary', auth, async (req, res) => {
   }
 });
 
-router.get('/stats', auth, role('Admin'), async (req, res) => {
+router.get('/stats', auth, role('Subtekinfo'), async (req, res) => {
   try {
     const [ticketCounts] = await pool.query(`
       SELECT status, count(*) as count FROM tickets GROUP BY status

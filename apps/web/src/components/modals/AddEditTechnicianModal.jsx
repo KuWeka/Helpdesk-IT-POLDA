@@ -19,12 +19,10 @@ export default function AddEditTechnicianModal({ isOpen, onClose, technician, on
     email: '',
     password: '',
     phone: '',
-    division_id_text: '',
-    role: 'Teknisi', // Explicitly set to case-sensitive 'Teknisi'
+    role: 'Teknisi',
     is_active: true,
     specializations: [],
-    shift_start: '09:00',
-    shift_end: '17:00',
+    shift_date: new Date().toISOString().split('T')[0],
     max_active_tickets: 5
   });
 
@@ -40,12 +38,10 @@ export default function AddEditTechnicianModal({ isOpen, onClose, technician, on
         email: technician.email || '',
         password: '',
         phone: technician.phone || '',
-        division_id_text: technician.division_id_text || '',
-        role: 'Teknisi', // Explicitly set to case-sensitive 'Teknisi'
+        role: 'Teknisi',
         is_active: technician.is_active !== false,
         specializations: technician.specializations || [],
-        shift_start: technician.shift_start || '09:00',
-        shift_end: technician.shift_end || '17:00',
+        shift_date: technician.shift_date || new Date().toISOString().split('T')[0],
         max_active_tickets: technician.max_active_tickets || 5
       });
     } else if (!technician && isOpen) {
@@ -104,7 +100,7 @@ export default function AddEditTechnicianModal({ isOpen, onClose, technician, on
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Teknisi' : 'Tambah Teknisi'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Padal' : 'Tambah Padal'}</DialogTitle>
           <DialogDescription>
             {isEditing
               ? 'Perbarui informasi teknisi. Kosongkan password bila tidak ingin mengubahnya.'
@@ -145,10 +141,6 @@ export default function AddEditTechnicianModal({ isOpen, onClose, technician, on
                 <Input id="phone" type="tel" value={formData.phone} onChange={handleChange} placeholder="Nomor Handphone" disabled={!isEditing} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="division_id_text">Divisi</Label>
-                <Input id="division_id_text" value={formData.division_id_text} onChange={handleChange} placeholder="Contoh: IT Support" disabled={!isEditing} />
-              </div>
-              <div className="space-y-2">
                 <Label>Role</Label>
                 <Select value="Teknisi" disabled>
                   <SelectTrigger><SelectValue placeholder="Teknisi" /></SelectTrigger>
@@ -166,14 +158,10 @@ export default function AddEditTechnicianModal({ isOpen, onClose, technician, on
                   <Label htmlFor="is_active">{formData.is_active ? 'Aktif Bekerja' : 'Tidak Aktif'}</Label>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <div className="space-y-2">
-                  <Label htmlFor="shift_start">Jam Mulai Shift</Label>
-                  <Input id="shift_start" type="time" required value={formData.shift_start} onChange={handleChange} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="shift_end">Jam Akhir Shift</Label>
-                  <Input id="shift_end" type="time" required value={formData.shift_end} onChange={handleChange} />
+                  <Label htmlFor="shift_date">Tanggal Shift</Label>
+                  <Input id="shift_date" type="date" required value={formData.shift_date} onChange={handleChange} />
                 </div>
               </div>
               <div className="space-y-2">

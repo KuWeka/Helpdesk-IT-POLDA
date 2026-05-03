@@ -28,11 +28,17 @@ class UserService {
 
     let query = `
       SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.is_active,
-             u.division_id, u.language, u.theme, u.created_at, u.updated_at,
-             d.name AS division_name
+             u.language, u.theme, u.created_at, u.updated_at,
+             ps.shift_start, ps.shift_end,
+             CASE
+               WHEN ps.shift_start IS NOT NULL AND ps.shift_end IS NOT NULL
+                    AND CURDATE() BETWEEN ps.shift_start AND ps.shift_end
+               THEN 1 ELSE 0
+             END AS is_shift_active,
+             ps.notes AS shift_notes
       FROM users u
-      LEFT JOIN divisions d ON u.division_id = d.id
-      WHERE 1=1
+      LEFT JOIN padal_shifts ps ON ps.padal_id = u.id
+      WHERE u.is_active = 1
     `;
     const params = [];
 
@@ -43,8 +49,8 @@ class UserService {
     }
 
     if (filters.is_active !== undefined) {
-      query += ' AND u.is_active = ?';
-      params.push(filters.is_active);
+      query = query.replace('WHERE u.is_active = 1', 'WHERE u.is_active = ?');
+      params.unshift(filters.is_active ? 1 : 0);
     }
 
     if (filters.search) {
@@ -54,14 +60,21 @@ class UserService {
     }
 
     // Get total count
-    const countQuery = query.replace('SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.is_active,\n             u.division_id, u.language, u.theme, u.created_at, u.updated_at,\n             d.name AS division_name\n      FROM users u', 'SELECT COUNT(*) as total FROM users u');
+    const countQuery = query.replace('SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.is_active,\n             u.language, u.theme, u.created_at, u.updated_at,\n             ps.shift_start, ps.shift_end,\n             CASE\n               WHEN ps.shift_start IS NOT NULL AND ps.shift_end IS NOT NULL\n                    AND CURDATE() BETWEEN ps.shift_start AND ps.shift_end\n               THEN 1 ELSE 0\n             END AS is_shift_active,\n             ps.notes AS shift_notes\n      FROM users u', 'SELECT COUNT(*) as total FROM users u');
     const [countResult] = await pool.query(countQuery, params);
     const total = countResult[0].total;
 
     // Apply sorting and pagination
-    const sortField = filters.sort || 'created_at';
-    const sortOrder = filters.order || 'DESC';
-    query += ` ORDER BY u.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
+    // Untuk role Padal: prioritaskan yang sedang aktif shift di atas
+    if (filters.role === 'Padal') {
+      const sortField = filters.sort || 'name';
+      const sortOrder = filters.order || 'ASC';
+      query += ` ORDER BY is_shift_active DESC, u.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
+    } else {
+      const sortField = filters.sort || 'created_at';
+      const sortOrder = filters.order || 'DESC';
+      query += ` ORDER BY u.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
+    }
     params.push(perPage, offset);
 
     const listCacheKey = this.buildKey('users:list', {
@@ -96,10 +109,8 @@ class UserService {
     if (user) return user;
     const [rows] = await pool.query(`
       SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.is_active,
-             u.division_id, u.language, u.theme, u.created_at, u.updated_at,
-             d.name AS division_name
+             u.language, u.theme, u.created_at, u.updated_at
       FROM users u
-      LEFT JOIN divisions d ON u.division_id = d.id
       WHERE u.id = ?
     `, [id]);
     user = rows[0] || null;
@@ -128,7 +139,6 @@ class UserService {
       password_hash: passwordHash,
       phone: userData.phone || null,
       role: userData.role,
-      division_id: userData.division_id || null,
       language: userData.language || 'ID',
       theme: userData.theme || 'light',
       is_active: userData.is_active !== undefined ? userData.is_active : true,
@@ -138,11 +148,11 @@ class UserService {
 
     await pool.query(`
       INSERT INTO users (id, name, email, username, password_hash, phone, role,
-                        division_id, language, theme, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        language, theme, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       user.id, user.name, user.email, user.username, user.password_hash,
-      user.phone, user.role, user.division_id, user.language, user.theme,
+      user.phone, user.role, user.language, user.theme,
       user.is_active, user.created_at, user.updated_at
     ]);
 

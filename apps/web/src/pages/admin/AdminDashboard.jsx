@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import api from '@/lib/api.js';
+import socket from '@/lib/socket.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -11,7 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart.jsx';
 import { Ticket, Users, CheckCircle2, Clock, PlayCircle, BarChart3, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import InsightCard from '@/components/tickets/InsightCard.jsx';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
 import { format } from 'date-fns';
@@ -55,6 +55,17 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    const handleNewTicket = () => { fetchDashboardData(); };
+    const handleTicketUpdated = () => { fetchDashboardData(); };
+    socket.on('ticket:new', handleNewTicket);
+    socket.on('ticket_updated', handleTicketUpdated);
+    return () => {
+      socket.off('ticket:new', handleNewTicket);
+      socket.off('ticket_updated', handleTicketUpdated);
+    };
+  }, []);
+
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
@@ -92,14 +103,10 @@ export default function AdminDashboard() {
         return now - createdTs > threeDaysMs;
       }).length;
 
-      const urgentCount = [...pendingData, ...prosesData].filter((tk) => {
-        const urgency = String(tk.urgency || '').toLowerCase();
-        return urgency.includes('tinggi') || urgency.includes('urgent') || urgency.includes('critical') || urgency.includes('kritis') || urgency.includes('high');
-      }).length;
-
       const totalTickets = payload.stats?.total || 0;
       const doneTickets = payload.stats?.selesai || 0;
       const slaPct = totalTickets > 0 ? Math.round((doneTickets / totalTickets) * 100) : 0;
+      const urgentCount = Number(payload.stats?.urgent_count || 0);
 
       const dayMap = new Map();
       allDashboardTickets.forEach((tk) => {
@@ -116,9 +123,9 @@ export default function AdminDashboard() {
         .slice(-8);
 
       setAgingTickets(agingCount);
-      setUrgentTickets(urgentCount);
       setSlaCompliance(slaPct);
       setTicketTrendData(trend);
+      setUrgentTickets(urgentCount);
 
     } catch (err) {
       console.error('Error fetching admin dashboard:', err);
@@ -138,7 +145,6 @@ export default function AdminDashboard() {
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="px-4">ID & Judul</TableHead>
-              <TableHead>Urgensi</TableHead>
               <TableHead>{t('tickets.reporter', 'Pelapor')}</TableHead>
               {isProsesOrSelesai && <TableHead>{t('roles.technician', 'Teknisi')}</TableHead>}
               <TableHead>{t('common.date', 'Date')}</TableHead>
@@ -150,8 +156,7 @@ export default function AdminDashboard() {
               Array(3).fill(0).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell className="px-4"><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                   {isProsesOrSelesai && <TableCell><Skeleton className="h-5 w-24" /></TableCell>}
                   <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell className="text-right px-4"><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
@@ -164,24 +169,23 @@ export default function AdminDashboard() {
                     <div className="font-medium text-foreground truncate max-w-[150px]">{tk.title}</div>
                     <div className="text-xs text-muted-foreground font-mono">{tk.ticket_number}</div>
                   </TableCell>
-                  <TableCell><UrgencyBadge urgency={tk.urgency} /></TableCell>
                   <TableCell className="text-sm truncate max-w-[120px]">{tk.reporter_name || '-'}</TableCell>
                   {isProsesOrSelesai && (
-                    <TableCell className="text-sm truncate max-w-[120px]">{tk.technician_name || '-'}</TableCell>
+                    <TableCell className="text-sm truncate max-w-[120px]">{tk.padal_name || '-'}</TableCell>
                   )}
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {safeFormatDate(tk.created_at || tk.created)}
                   </TableCell>
                   <TableCell className="text-right px-4">
                     <Button variant="secondary" size="sm" asChild>
-                      <Link to={`/admin/tickets/${tk.id}`}>{t('common.detail', 'Detail')}</Link>
+                      <Link to={`/subtekinfo/tickets/${tk.id}`}>{t('common.detail', 'Detail')}</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={isProsesOrSelesai ? 6 : 5} className="py-8 text-center">
+                <TableCell colSpan={isProsesOrSelesai ? 5 : 4} className="py-8 text-center">
                   <Empty
                     variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
                     title={t('tickets.no_tickets', 'Tidak ada tiket')}

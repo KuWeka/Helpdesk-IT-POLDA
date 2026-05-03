@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import api from '@/lib/api.js';
+import socket from '@/lib/socket.js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -14,8 +15,8 @@ import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import { ListOrdered, CheckCircle2, Calendar, Hand, ArrowRight, Activity, TrendingUp, ShieldCheck, Timer, Flame } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import InsightCard from '@/components/tickets/InsightCard.jsx';
+import AssignmentNotificationBanner from '@/components/tickets/AssignmentNotificationBanner.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { TICKET_STATUS } from '@/lib/constants.js';
@@ -46,12 +47,54 @@ export default function TechnicianDashboard() {
   
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isTaking, setIsTaking] = useState(false);
+  const [pendingAssignments, setPendingAssignments] = useState([]);
 
   useEffect(() => {
     if (currentUser && currentUser.id) {
       fetchDashboardData();
+      fetchPendingAssignments();
     }
   }, [currentUser]);
+
+  // Socket.IO: dengarkan event ticket:assigned
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const handleAssigned = (data) => {
+      // Tambahkan ke list pending assignments (hindari duplikasi)
+      setPendingAssignments((prev) => {
+        if (prev.some((a) => a.ticket_id === data.ticket_id)) return prev;
+        return [data, ...prev];
+      });
+      toast.info(`Assignment masuk: Tiket ${data.ticket_number || data.ticket_id}`);
+    };
+
+    socket.on('ticket:assigned', handleAssigned);
+    return () => socket.off('ticket:assigned', handleAssigned);
+  }, [currentUser?.id]);
+
+  const fetchPendingAssignments = async () => {
+    try {
+      const { data } = await api.get('/tickets', {
+        params: { status: 'Pending', padal_id: currentUser.id, perPage: 20 }
+      });
+      // Filter tiket yang punya pending_confirm assignment untuk Padal ini
+      // Ambil dari endpoint assignments jika ada, atau pakai data tiket
+      const items = data?.data?.items || data?.items || [];
+      // Format sesuai struktur notifikasi
+      const mapped = items
+        .filter((t) => t.padal_id === currentUser.id && t.status === 'Pending')
+        .map((t) => ({
+          ticket_id: t.id,
+          ticket_number: t.ticket_number,
+          title: t.title,
+          assigned_by: t.padal_name || 'Subtekinfo',
+        }));
+      setPendingAssignments(mapped);
+    } catch (err) {
+      // Biarkan; tidak kritis jika gagal load
+    }
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -85,10 +128,12 @@ export default function TechnicianDashboard() {
         return now - createdTs > threeDaysMs;
       }).length;
 
-      const urgentCount = allTechTickets.filter((tk) => {
-        const urgency = String(tk.urgency || '').toLowerCase();
-        return urgency.includes('tinggi') || urgency.includes('urgent') || urgency.includes('critical') || urgency.includes('kritis') || urgency.includes('high');
-      }).length;
+      const urgentCount = Number(
+        payload.stats?.urgent ||
+        payload.stats?.urgentCount ||
+        payload.stats?.urgent_count ||
+        0
+      );
 
       const handled = (payload.stats?.myProses || 0) + (payload.stats?.completedToday || 0);
       const slaPct = handled > 0 ? Math.round(((payload.stats?.completedToday || 0) / handled) * 100) : 0;
@@ -156,7 +201,7 @@ export default function TechnicianDashboard() {
       setSelectedTicket(null);
       
       setTimeout(() => {
-        navigate(`/technician/tickets/${targetId}`);
+        navigate(`/padal/tickets/${targetId}`);
       }, 500);
       
     } catch (error) {
@@ -170,6 +215,16 @@ export default function TechnicianDashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {pendingAssignments.length > 0 && (
+        <AssignmentNotificationBanner
+          assignments={pendingAssignments}
+          onResponded={() => {
+            setPendingAssignments([]);
+            fetchDashboardData();
+          }}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
         <div>
           <SectionHeader
@@ -281,7 +336,7 @@ export default function TechnicianDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-xl">{t('tickets.queue', 'Antrian Tiket')}</CardTitle>
             <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary/80">
-              <Link to="/technician/queue">{t('common.viewAll', 'View All')} <ArrowRight className="ml-1 h-4 w-4" /></Link>
+              <Link to="/padal/queue">{t('common.viewAll', 'View All')} <ArrowRight className="ml-1 h-4 w-4" /></Link>
             </Button>
           </CardHeader>
           <CardContent className="flex-1 p-0">
@@ -290,7 +345,6 @@ export default function TechnicianDashboard() {
                 <TableHeader className="bg-muted/30">
                   <TableRow>
                     <TableHead className="px-4">{t('common.titleAndId', 'Title & ID')}</TableHead>
-                    <TableHead>{t('common.urgency', 'Urgency')}</TableHead>
                     <TableHead>{t('common.date', 'Date')}</TableHead>
                     <TableHead className="text-right px-4">{t('common.actions', 'Actions')}</TableHead>
                   </TableRow>
@@ -300,7 +354,6 @@ export default function TechnicianDashboard() {
                     Array(3).fill(0).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell className="px-4"><Skeleton className="h-10 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                         <TableCell className="text-right px-4"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                       </TableRow>
@@ -312,7 +365,6 @@ export default function TechnicianDashboard() {
                           <div className="font-medium text-foreground truncate max-w-[180px]" title={ticket.title}>{ticket.title}</div>
                           <div className="text-xs text-muted-foreground font-mono mt-0.5">{ticket.ticket_number}</div>
                         </TableCell>
-                        <TableCell><UrgencyBadge urgency={ticket.urgency} /></TableCell>
                         <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                           {safeFormatDate(ticket.created_at || ticket.created)}
                         </TableCell>
@@ -344,7 +396,7 @@ export default function TechnicianDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-xl">{t('techDashboard.myInProgressTitle', 'My In Progress Tickets')}</CardTitle>
             <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary/80">
-              <Link to="/technician/tickets">{t('common.viewAll', 'View All')} <ArrowRight className="ml-1 h-4 w-4" /></Link>
+              <Link to="/padal/tickets">{t('common.viewAll', 'View All')} <ArrowRight className="ml-1 h-4 w-4" /></Link>
             </Button>
           </CardHeader>
           <CardContent className="flex-1 p-0">
@@ -378,7 +430,7 @@ export default function TechnicianDashboard() {
                         </TableCell>
                         <TableCell className="text-right px-4">
                           <Button variant="outline" size="sm" asChild>
-                            <Link to={`/technician/tickets/${ticket.id}`}>{t('common.detail', 'Detail')}</Link>
+                            <Link to={`/padal/tickets/${ticket.id}`}>{t('common.detail', 'Detail')}</Link>
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -413,7 +465,7 @@ export default function TechnicianDashboard() {
             <div className="bg-muted/30 p-4 rounded-xl border space-y-2 mt-2">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-sm font-semibold">{selectedTicket.ticket_number}</span>
-                <UrgencyBadge urgency={selectedTicket.urgency} />
+
               </div>
               <p className="font-medium text-foreground">{selectedTicket.title}</p>
             </div>

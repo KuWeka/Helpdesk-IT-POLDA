@@ -1,8 +1,9 @@
 
 export const ROLES = {
-  ADMIN: 'Admin',
-  USER: 'User',
-  TECHNICIAN: 'Teknisi'
+  SUBTEKINFO: 'Subtekinfo',
+  PADAL: 'Padal',
+  TEKNISI: 'Teknisi',
+  SATKER: 'Satker'
 };
 
 export const TICKET_STATUS = {
@@ -11,13 +12,6 @@ export const TICKET_STATUS = {
   SELESAI: 'Selesai',
   DIBATALKAN: 'Dibatalkan',
   DITOLAK: 'Ditolak'
-};
-
-export const URGENCY_LEVELS = {
-  RENDAH: 'Rendah',
-  SEDANG: 'Sedang',
-  TINGGI: 'Tinggi',
-  DARURAT: 'Kritis'
 };
 
 export const TECHNICIAN_STATUS = {

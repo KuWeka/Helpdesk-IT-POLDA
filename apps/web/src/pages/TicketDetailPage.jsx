@@ -4,13 +4,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api.js';
 import { useAuth } from '@/contexts/AuthContext.jsx';
+import socket from '@/lib/socket.js';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.jsx';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
-import { ArrowLeft, MessageSquare, Calendar, User, MapPin, Download, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, Calendar, User, MapPin, Download, AlertCircle, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -43,8 +44,32 @@ export default function TicketDetailPage() {
   const [attachments, setAttachments] = useState([]);
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [waNumber, setWaNumber] = useState('');
   const [reporterName, setReporterName] = useState('');
+  const [hasRated, setHasRated] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+  // Socket.IO: dengarkan event status_changed (untuk Satker)
+  useEffect(() => {
+    const handleStatusChanged = (data) => {
+      if (data.ticket_id !== id) return;
+      // Update ticket state agar UI langsung reflect status baru
+      setTicket((prev) => prev ? { ...prev, status: data.new_status, rejection_reason: data.reason || prev.rejection_reason } : prev);
+      if (data.new_status === 'Ditolak') {
+        toast.error(
+          data.reason
+            ? `Permohonan ${data.ticket_number || ''} ditolak. Alasan: ${data.reason}`
+            : `Permohonan ${data.ticket_number || ''} telah ditolak.`,
+          { duration: 8000 }
+        );
+      } else {
+        toast.info(`Status permohonan ${data.ticket_number || ''} berubah menjadi ${data.new_status}.`);
+      }
+    };
+
+    socket.on('ticket:status_changed', handleStatusChanged);
+    return () => socket.off('ticket:status_changed', handleStatusChanged);
+  }, [id]);
 
   useEffect(() => {
     const fetchTicketData = async () => {
@@ -54,11 +79,23 @@ export default function TicketDetailPage() {
 
         setReporterName(ticketData.reporter_name || t('tickets.unknown_user'));
 
+        const { data: settingsData } = await api.get('/settings');
+        setWaNumber(settingsData?.settings?.whatsapp_number || '');
+
         const { data: attachData } = await api.get(`/uploads/ticket/${id}`);
         setAttachments(Array.isArray(attachData?.attachments) ? attachData.attachments : []);
 
         const { data: notesData } = await api.get(`/tickets/${id}/notes`);
         setNotes(notesData || []);
+
+        // Cek apakah permohonan ini sudah dirating (hanya relevan untuk Satker)
+        try {
+          const { data: ratingCheck } = await api.get('/tickets/pending-rating');
+          // Jika tidak ada pending rating, berarti permohonan ini (jika Selesai) sudah dirating
+          if (ticketData.status === 'Selesai') {
+            setHasRated(!ratingCheck.pending || ratingCheck.ticket?.id !== id);
+          }
+        } catch (_) {/* tidak kritis */}
 
       } catch (err) {
         console.error('Error fetching ticket details:', err);
@@ -70,47 +107,12 @@ export default function TicketDetailPage() {
     fetchTicketData();
   }, [id, t]);
 
-  const handleChatTechnician = async () => {
-    if (!ticket) return;
-    
-    setIsChatLoading(true);
-    try {
-      // Check if chat already exists for this ticket and user
-      const { data: existingChats } = await api.get('/chats', {
-        params: {
-          page: 1,
-          perPage: 1,
-          ticket_id: ticket.id
-        }
-      });
-      const existingChatItems = extractItems(existingChats);
-      
-      if (existingChatItems.length > 0) {
-        navigate(`/user/chats/${existingChatItems[0].id}`);
-        return;
-      }
-      
-      // If no technician assigned, show error
-      if (!ticket.assigned_technician_id) {
-        toast.error('Belum ada teknisi yang ditugaskan untuk tiket ini. Silakan tunggu penugasan teknisi.');
-        setIsChatLoading(false);
-        return;
-      }
-      
-      // Create new chat
-      const { data: newChat } = await api.post('/chats', {
-        ticket_id: ticket.id,
-        technician_id: ticket.assigned_technician_id
-      });
-      
-      toast.success('Chat berhasil dibuat');
-      navigate(`/user/chats/${newChat.id}`);
-    } catch (error) {
-      console.error('Error creating chat:', error.response || error);
-      toast.error('Gagal membuat chat: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setIsChatLoading(false);
+  const handleWhatsApp = () => {
+    if (!waNumber) {
+      toast.error('Nomor WhatsApp Subtekinfo belum dikonfigurasi.');
+      return;
     }
+    window.open(`https://wa.me/${waNumber}`, '_blank', 'noopener,noreferrer');
   };
 
   if (isLoading) {
@@ -127,13 +129,27 @@ export default function TicketDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <AlertCircle className="h-12 w-12 text-destructive" />
-        <h2 className="text-2xl font-bold">Tiket tidak ditemukan</h2>
+        <h2 className="text-2xl font-bold">Permohonan tidak ditemukan</h2>
         <Button onClick={() => navigate(-1)}>{t('buttons.back')}</Button>
       </div>
     );
   }
 
-  const isTechnicianAssigned = !!ticket.assigned_technician_id;
+  const isPadalAssigned = !!ticket.padal_id;
+  const canEditOrCancel = currentUser?.role === 'Satker' && ticket.user_id === currentUser?.id && ticket.status === 'Pending';
+
+  const handleCancelTicket = async () => {
+    try {
+      await api.patch(`/tickets/${ticket.id}`, {
+        status: 'Dibatalkan',
+        closed_at: new Date().toISOString(),
+      });
+      toast.success('Permohonan berhasil dibatalkan');
+      navigate('/satker/tickets');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal membatalkan permohonan');
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -149,22 +165,63 @@ export default function TicketDetailPage() {
               {ticket.ticket_number}
             </span>
             <StatusBadge status={ticket.status} />
-            <UrgencyBadge urgency={ticket.urgency} />
           </div>
           <SectionHeader title={ticket.title} />
         </div>
-        <Button 
-          disabled={isChatLoading} 
-          onClick={handleChatTechnician}
-          className="gap-2 shrink-0"
-        >
-          {isChatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-          {isTechnicianAssigned ? t('buttons.chat_tech', 'Chat Teknisi') : 'Buat Chat'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={handleWhatsApp}
+            className="gap-2 shrink-0"
+          >
+            <Phone className="h-4 w-4" />
+            Hubungi via WhatsApp
+          </Button>
+          {canEditOrCancel && (
+            <>
+              <Button
+                variant="outline"
+                className="shrink-0"
+                onClick={() => navigate(`/satker/tickets/${ticket.id}/edit`)}
+              >
+                Edit Permohonan
+              </Button>
+              <Button
+                variant="destructive"
+                className="shrink-0"
+                onClick={() => setIsCancelDialogOpen(true)}
+              >
+                Batalkan Permohonan
+              </Button>
+            </>
+          )}
+          {ticket.status === 'Selesai' && !hasRated && (currentUser?.role === 'Satker' || currentUser?.role === 'Teknisi') && (
+            <Button
+              variant="outline"
+              className="gap-2 shrink-0 border-amber-400 text-amber-600 hover:bg-amber-50"
+              onClick={() => navigate(`/satker/rating?ticket_id=${ticket.id}`)}
+            >
+              <Star className="h-4 w-4" />
+              Beri Rating
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
+          {ticket.status === 'Ditolak' && ticket.rejection_reason && (
+            <Card className="border-destructive/50 bg-destructive/5 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-destructive mb-1">Permohonan Ditolak</p>
+                    <p className="text-sm text-foreground">{ticket.rejection_reason}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <Card className="border-border shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Deskripsi Kendala</CardTitle>
@@ -234,11 +291,11 @@ export default function TicketDetailPage() {
 
               <div className="pt-4 border-t space-y-1.5">
                 <div className="flex items-center text-muted-foreground text-sm">
-                  <User className="mr-2 h-4 w-4" /> Teknisi Ditugaskan
+                  <User className="mr-2 h-4 w-4" /> Padal Ditugaskan
                 </div>
                 <div className="font-medium">
-                  {ticket.technician_name ? (
-                    ticket.technician_name
+                  {ticket.padal_name ? (
+                    ticket.padal_name
                   ) : (
                     <span className="text-muted-foreground italic font-normal">Menunggu penugasan</span>
                   )}
@@ -257,6 +314,26 @@ export default function TicketDetailPage() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Permohonan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin membatalkan permohonan ini? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tidak, Kembali</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleCancelTicket}
+            >
+              Ya, Batalkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

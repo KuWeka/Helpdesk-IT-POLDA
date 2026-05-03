@@ -27,10 +27,11 @@ class TicketService {
     const offset = (page - 1) * perPage;
 
     let query = `
-      SELECT t.*, u.name as reporter_name, tech.name as technician_name
+      SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
+      LEFT JOIN users padal ON t.padal_id = padal.id
       WHERE 1=1
     `;
     const params = [];
@@ -39,11 +40,6 @@ class TicketService {
     if (filters.status) {
       query += ' AND t.status = ?';
       params.push(filters.status);
-    }
-
-    if (filters.urgency) {
-      query += ' AND t.urgency = ?';
-      params.push(filters.urgency);
     }
 
     if (filters.user_id) {
@@ -77,7 +73,7 @@ class TicketService {
     }
 
     // Get total count
-    const countQuery = query.replace('SELECT t.*, u.name as reporter_name, tech.name as technician_name\n      FROM tickets t', 'SELECT COUNT(*) as total FROM tickets t');
+    const countQuery = query.replace('SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name\n      FROM tickets t', 'SELECT COUNT(*) as total FROM tickets t');
     const [countResult] = await pool.query(countQuery, params);
     const total = countResult[0].total;
 
@@ -118,10 +114,11 @@ class TicketService {
     let ticket = await cache.get(cacheKey);
     if (ticket) return ticket;
     const [rows] = await pool.query(`
-      SELECT t.*, u.name as reporter_name, tech.name as technician_name
+      SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
+      LEFT JOIN users padal ON t.padal_id = padal.id
       WHERE t.id = ?
     `, [id]);
     ticket = rows[0] || null;
@@ -141,7 +138,6 @@ class TicketService {
       ticket_number: ticketNumber,
       title: ticketData.title,
       description: ticketData.description,
-      urgency: ticketData.urgency,
       category: ticketData.category,
       status: 'Open',
       user_id: ticketData.user_id,
@@ -153,13 +149,13 @@ class TicketService {
     };
 
     await pool.query(`
-      INSERT INTO tickets (id, ticket_number, title, description, urgency, category,
+      INSERT INTO tickets (id, ticket_number, title, description, category,
                           status, user_id, assigned_technician_id, solution, closed_at,
                           created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       ticket.id, ticket.ticket_number, ticket.title, ticket.description,
-      ticket.urgency, ticket.category, ticket.status, ticket.user_id,
+      ticket.category, ticket.status, ticket.user_id,
       ticket.assigned_technician_id, ticket.solution, ticket.closed_at,
       ticket.created_at, ticket.updated_at
     ]);
@@ -244,10 +240,6 @@ class TicketService {
         SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
         SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
         SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) as closed,
-        SUM(CASE WHEN urgency = 'Critical' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN urgency = 'High' THEN 1 ELSE 0 END) as high,
-        SUM(CASE WHEN urgency = 'Medium' THEN 1 ELSE 0 END) as medium,
-        SUM(CASE WHEN urgency = 'Low' THEN 1 ELSE 0 END) as low
       FROM tickets
     `);
 

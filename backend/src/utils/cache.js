@@ -135,7 +135,7 @@ class RedisCache {
     try {
       let deleted = 0;
       for await (const key of this.client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
-        await this.client.del(key);
+        await this.client.del([key]);
         deleted += 1;
       }
       return deleted;

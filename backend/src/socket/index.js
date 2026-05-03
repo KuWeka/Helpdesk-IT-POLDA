@@ -4,19 +4,18 @@ const socketHandler = (io) => {
   io.on('connection', (socket) => {
     logger.info('User connected to WebSocket', { socketId: socket.id });
 
-    socket.on('join_chat', (chatId) => {
-      socket.join(`chat:${chatId}`);
-      logger.info('Socket joined chat room', { socketId: socket.id, chatId });
+    // Join personal user room (untuk notifikasi langsung ke user tertentu)
+    socket.on('join_user_room', (userId) => {
+      if (userId && typeof userId === 'string') {
+        socket.join(`user:${userId}`);
+        logger.info('Socket joined user room', { socketId: socket.id, userId });
+      }
     });
 
-    socket.on('leave_chat', (chatId) => {
-      socket.leave(`chat:${chatId}`);
-      logger.info('Socket left chat room', { socketId: socket.id, chatId });
-    });
-
-    socket.on('join_technicians', () => {
-      socket.join('technicians');
-      logger.info('Socket joined technicians room', { socketId: socket.id });
+    // Join Subtekinfo broadcast room (untuk notifikasi tiket baru dan assignment response)
+    socket.on('join_subtekinfo_room', () => {
+      socket.join('subtekinfo');
+      logger.info('Socket joined subtekinfo room', { socketId: socket.id });
     });
 
     socket.on('disconnect', () => {

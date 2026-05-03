@@ -28,7 +28,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog.jsx';
-import { PlusCircle, Edit, Trash2, ArrowDown, MoreHorizontal, Inbox } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog.jsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
+import { PlusCircle, Edit, Trash2, MoreHorizontal, Calendar, Users, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import AddEditTechnicianModal from '@/components/modals/AddEditTechnicianModal.jsx';
 import { ROLES } from '@/lib/constants.js';
@@ -58,6 +67,12 @@ export default function ManageTechniciansPage() {
   const [modalState, setModalState] = useState({ isOpen: false, tech: null });
   const [isSaving, setIsSaving] = useState(false);
   const [actionTarget, setActionTarget] = useState({ type: null, tech: null });
+  const [detailTarget, setDetailTarget] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [teknisiList, setTeknisiList] = useState([]);
+  const [selectedTeknisi, setSelectedTeknisi] = useState('');
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
   const fetchTechnicians = async () => {
     setIsLoading(true);
@@ -77,7 +92,7 @@ export default function ManageTechniciansPage() {
     try {
       const { data } = await api.get('/users', {
         params: {
-          role: ROLES.USER,
+          role: ROLES.SATKER,
           is_active: true,
           sort: 'name',
           order: 'asc',
@@ -102,7 +117,7 @@ export default function ManageTechniciansPage() {
     try {
       if (modalState.tech && modalState.tech.id) {
         await api.patch(`/technicians/${modalState.tech.id}`, {
-          name: data.name, email: data.email, phone: data.phone, is_active: data.is_active, role: ROLES.TECHNICIAN
+          name: data.name, email: data.email, phone: data.phone, is_active: data.is_active, role: ROLES.PADAL
         });
         toast.success(t('manageTechs.updateSuccess', 'Technician updated'));
       } else {
@@ -126,14 +141,49 @@ export default function ManageTechniciansPage() {
     }
   };
 
-  const handleDowngrade = async (tech) => {
+  const openDetail = async (tech) => {
+    setDetailTarget(tech);
+    setSelectedTeknisi('');
+    setIsLoadingMembers(true);
     try {
-      await api.patch(`/technicians/${tech.id}/downgrade`);
-      
-      toast.success(t('manageTechs.downgradeSuccess', 'Technician role downgraded to user'));
+      const [membersRes, teknisiRes] = await Promise.all([
+        api.get(`/padal-shifts/${tech.id}/members`),
+        api.get('/users', { params: { role: 'Teknisi', perPage: 100 } }),
+      ]);
+      setMembers(membersRes.data?.data?.members || []);
+      setTeknisiList(extractUsers(teknisiRes.data));
+    } catch {
+      toast.error('Gagal memuat data anggota');
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedTeknisi) return;
+    setIsAddingMember(true);
+    try {
+      await api.post(`/padal-shifts/${detailTarget.id}/members`, { teknisi_id: selectedTeknisi });
+      toast.success('Anggota berhasil ditambahkan');
+      setSelectedTeknisi('');
+      const res = await api.get(`/padal-shifts/${detailTarget.id}/members`);
+      setMembers(res.data?.data?.members || []);
       fetchTechnicians();
     } catch (err) {
-      toast.error(t('manageTechs.downgradeFailed', 'Failed to downgrade technician role'));
+      toast.error(err.response?.data?.message || 'Gagal menambahkan anggota');
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
+
+  const handleRemoveMember = async (teknisiId, teknisiName) => {
+    try {
+      await api.delete(`/padal-shifts/${detailTarget.id}/members/${teknisiId}`);
+      toast.success(`${teknisiName} dihapus dari Padal`);
+      setMembers((prev) => prev.filter((m) => m.id !== teknisiId));
+      fetchTechnicians();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gagal menghapus anggota');
     }
   };
 
@@ -152,7 +202,7 @@ export default function ManageTechniciansPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <SectionHeader
-            title={t('admin.manage_techs', 'Kelola Teknisi')}
+            title={t('admin.manage_techs', 'Kelola Padal')}
             subtitle={t('admin.total_techs', { count: technicians.length, defaultValue: `Total: ${technicians.length} teknisi` })}
           />
         </div>
@@ -166,9 +216,10 @@ export default function ManageTechniciansPage() {
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="px-6">{t('manageTechs.nameInfo', 'Name & Info')}</TableHead>
-                  <TableHead>{t('common.division', 'Division')}</TableHead>
                   <TableHead>{t('manageTechs.contact', 'Contact')}</TableHead>
                   <TableHead>{t('common.status', 'Status')}</TableHead>
+                  <TableHead>Status Shift</TableHead>
+                  <TableHead>Jumlah Anggota</TableHead>
                   <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -177,9 +228,10 @@ export default function ManageTechniciansPage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell className="px-6"><Skeleton className="h-10 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-10" /></TableCell>
                       <TableCell className="text-right px-6"><Skeleton className="h-8 w-8 ml-auto rounded-md" /></TableCell>
                     </TableRow>
                   ))
@@ -190,9 +242,6 @@ export default function ManageTechniciansPage() {
                         <div className="font-medium text-foreground">{tech.name}</div>
                         <div className="text-sm text-muted-foreground">{tech.email}</div>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {tech.division_name || '-'}
-                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {tech.phone || '-'}
                       </TableCell>
@@ -200,6 +249,26 @@ export default function ManageTechniciansPage() {
                         <Badge variant="secondary" className={tech.is_active ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}>
                           {tech.is_active ? t('manageTechs.active', 'Active') : t('manageTechs.offDuty', 'Off Duty')}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {tech.is_shift_active ? (
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1 text-xs">
+                            <Calendar className="h-3 w-3" />
+                            Sedang Shift
+                          </Badge>
+                        ) : tech.shift_start ? (
+                          <Badge variant="outline" className="text-muted-foreground text-xs">
+                            Tidak Aktif
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Belum diatur</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" />
+                          {tech.member_count ?? 0}
+                        </span>
                       </TableCell>
                       <TableCell className="text-right px-6">
                         <DropdownMenu>
@@ -210,13 +279,14 @@ export default function ManageTechniciansPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDetail(tech)}>
+                              <Users className="mr-2 h-4 w-4" />
+                              Detail Anggota
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setModalState({ isOpen: true, tech })}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setActionTarget({ type: 'downgrade', tech })}>
-                              <ArrowDown className="mr-2 h-4 w-4" />
-                              Turunkan ke User
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -233,7 +303,7 @@ export default function ManageTechniciansPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-56">
+                    <TableCell colSpan={6} className="h-56">
                       <Empty
                         className="border-0 shadow-none"
                         variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
@@ -256,6 +326,85 @@ export default function ManageTechniciansPage() {
         candidateUsers={candidateUsers}
       />
 
+      {/* Detail Anggota Dialog */}
+      <Dialog open={!!detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Anggota Padal — {detailTarget?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Kelola anggota Teknisi yang tergabung dalam Padal ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex gap-2">
+              <Select value={selectedTeknisi} onValueChange={setSelectedTeknisi} disabled={isLoadingMembers}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Pilih Teknisi..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {teknisiList
+                    .filter((t) => !members.some((m) => m.id === t.id))
+                    .map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleAddMember} disabled={!selectedTeknisi || isAddingMember} className="gap-1">
+                {isAddingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                Tambah
+              </Button>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              {isLoadingMembers ? (
+                <div className="p-4 space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                </div>
+              ) : members.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8 text-sm">
+                  Belum ada anggota. Tambahkan Teknisi di atas.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-medium text-sm">{m.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{m.email}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRemoveMember(m.id, m.name)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailTarget(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog
         open={!!actionTarget.type}
         onOpenChange={(open) => {
@@ -264,30 +413,21 @@ export default function ManageTechniciansPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {actionTarget.type === 'downgrade' ? 'Turunkan Role Teknisi' : 'Hapus Akun Teknisi'}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Hapus Akun Padal</AlertDialogTitle>
             <AlertDialogDescription>
-              {actionTarget.type === 'downgrade'
-                ? `Yakin ingin mengubah role "${actionTarget.tech?.name || '-'}" menjadi User biasa? Akun tidak akan dihapus.`
-                : `PERINGATAN: Yakin ingin menghapus permanen akun "${actionTarget.tech?.name || '-'}"? Semua data teknisi terkait akan ikut terhapus.`}
+              PERINGATAN: Yakin ingin menghapus permanen akun &quot;{actionTarget.tech?.name || '-'}&quot;? Semua data terkait akan ikut terhapus.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setActionTarget({ type: null, tech: null })}>Batal</AlertDialogCancel>
             <AlertDialogAction
-              className={actionTarget.type === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                if (actionTarget.type === 'downgrade' && actionTarget.tech) {
-                  handleDowngrade(actionTarget.tech);
-                }
-                if (actionTarget.type === 'delete' && actionTarget.tech) {
-                  handlePermanentDelete(actionTarget.tech);
-                }
+                if (actionTarget.tech) handlePermanentDelete(actionTarget.tech);
                 setActionTarget({ type: null, tech: null });
               }}
             >
-              {actionTarget.type === 'downgrade' ? 'Ya, Turunkan Role' : 'Ya, Hapus Permanen'}
+              Ya, Hapus Permanen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -34,7 +34,15 @@ export function NavUser({ user }) {
   if (!user) return null;
 
   const role = user.role || 'User';
-  const rolePath = role === 'Admin' ? '/admin' : role === 'Teknisi' ? '/technician' : '/user';
+  const rolePath = role === 'Subtekinfo'
+    ? '/subtekinfo'
+    : role === 'Padal'
+      ? '/padal'
+      : role === 'Teknisi'
+        ? '/teknisi'
+        : '/satker';
+
+  const accountSettingsPath = `${rolePath}/account-settings`;
 
   return (
     <>
@@ -82,7 +90,7 @@ export function NavUser({ user }) {
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <NavLink to={`${rolePath}/settings`}>
+                  <NavLink to={accountSettingsPath}>
                     <BadgeCheck className="mr-2 h-4 w-4" />
                     Pengaturan Akun
                   </NavLink>

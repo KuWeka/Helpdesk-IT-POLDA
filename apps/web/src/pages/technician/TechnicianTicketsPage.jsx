@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Search, Filter, RefreshCcw } from 'lucide-react';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { TICKET_STATUS } from '@/lib/constants.js';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
@@ -25,7 +24,7 @@ const extractItems = (payload) => {
   return [];
 };
 
-const safeFormatDate = (value, pattern = 'dd MMM yyyy') => {
+const safeFormatDate = (value, pattern = 'dd MMM yyyy, HH:mm') => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
@@ -41,8 +40,7 @@ export default function TechnicianTicketsPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
-  const [sortOrder, setSortOrder] = useState('urgency_desc');
+  const [sortOrder, setSortOrder] = useState('newest');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -55,7 +53,6 @@ export default function TechnicianTicketsPage() {
           perPage: 50,
           technician_id: currentUser.id,
           status: statusFilter !== 'all' ? statusFilter : undefined,
-          urgency: urgencyFilter !== 'all' ? urgencyFilter : undefined,
           search: searchTerm || undefined,
           from: dateFrom || undefined,
           to: dateTo || undefined
@@ -72,13 +69,12 @@ export default function TechnicianTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
-  }, [currentUser, searchTerm, statusFilter, urgencyFilter, sortOrder, dateFrom, dateTo]);
+  }, [currentUser, searchTerm, statusFilter, sortOrder, dateFrom, dateTo]);
 
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
-    setUrgencyFilter('all');
-    setSortOrder('urgency_desc');
+    setSortOrder('newest');
     setDateFrom('');
     setDateTo('');
   };
@@ -86,8 +82,8 @@ export default function TechnicianTicketsPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <SectionHeader
-        title={t('nav.item.Tiket Saya', 'My Tickets')}
-        subtitle={t('techTickets.subtitle', 'List of tickets assigned to you.')}
+        title="Permohonan Saya"
+        subtitle="Daftar permohonan yang ditugaskan kepada Anda."
       />
 
       <div className="space-y-4">
@@ -96,7 +92,7 @@ export default function TechnicianTicketsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder={t('userTickets.searchPlaceholder', 'Search ticket ID or title...')} 
+                placeholder="Cari ID permohonan atau judul..." 
                 className="pl-9 bg-background"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -116,25 +112,11 @@ export default function TechnicianTicketsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-                <SelectTrigger className="w-[140px] bg-background">
-                  <SelectValue placeholder={t('common.urgency', 'Urgency')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('techTickets.allUrgency', 'All Urgency')}</SelectItem>
-                  <SelectItem value="Rendah">Rendah</SelectItem>
-                  <SelectItem value="Sedang">Sedang</SelectItem>
-                  <SelectItem value="Tinggi">Tinggi</SelectItem>
-                  <SelectItem value="Kritis">Kritis</SelectItem>
-                </SelectContent>
-              </Select>
-
               <Select value={sortOrder} onValueChange={setSortOrder}>
                 <SelectTrigger className="w-[160px] bg-background">
                   <SelectValue placeholder={t('common.sort', 'Sort')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="urgency_desc">{t('userTickets.sortUrgencyDesc', 'Critical -> Low')}</SelectItem>
                   <SelectItem value="newest">{t('common.newest', 'Newest')}</SelectItem>
                   <SelectItem value="oldest">{t('common.oldest', 'Oldest')}</SelectItem>
                 </SelectContent>
@@ -161,12 +143,11 @@ export default function TechnicianTicketsPage() {
             <Table className="min-w-full">
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="w-[130px] px-6">{t('common.ticketId', 'Ticket ID')}</TableHead>
+                  <TableHead className="w-[130px] px-6">ID Permohonan</TableHead>
                   <TableHead>{t('common.title', 'Title')}</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Urgensi</TableHead>
                   <TableHead>{t('tickets.reporter')}</TableHead>
-                  <TableHead>{t('common.date', 'Date')}</TableHead>
+                  <TableHead>Tanggal/Jam</TableHead>
                   <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -176,7 +157,6 @@ export default function TechnicianTicketsPage() {
                     <TableRow key={i}>
                       <TableCell className="px-6"><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -189,24 +169,23 @@ export default function TechnicianTicketsPage() {
                       <TableCell className="font-medium font-mono text-sm px-6 text-muted-foreground">{ticket.ticket_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate font-medium text-foreground" title={ticket.title}>{ticket.title}</TableCell>
                       <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                      <TableCell><UrgencyBadge urgency={ticket.urgency} /></TableCell>
                       <TableCell className="text-sm">{ticket.reporter_name || t('tickets.unknown_user')}</TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                         {safeFormatDate(ticket.created_at || ticket.created)}
                       </TableCell>
                       <TableCell className="text-right px-6">
                         <Button variant="secondary" size="sm" asChild>
-                          <Link to={`/technician/tickets/${ticket.id}`}>{t('common.detail', 'Detail')}</Link>
+                          <Link to={`/padal/tickets/${ticket.id}`}>{t('common.detail', 'Detail')}</Link>
                         </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-48 text-center">
+                    <TableCell colSpan={6} className="h-48 text-center">
                       <Empty
                         variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
-                        title={t('tickets.no_tickets')}
+                        title="Tidak ada permohonan"
                         description={t('userTickets.emptyDesc', 'Try adjusting your search filters.')}
                       />
                     </TableCell>

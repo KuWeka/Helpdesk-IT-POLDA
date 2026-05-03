@@ -24,11 +24,7 @@ const patterns = {
     'Pending', 'Proses', 'Selesai', 'Dibatalkan', 'Ditolak',
     'Open', 'In Progress', 'Resolved', 'Closed'
   ),
-  urgency: Joi.string().valid(
-    'Rendah', 'Sedang', 'Tinggi', 'Kritis',
-    'Low', 'Medium', 'High', 'Critical'
-  ),
-  role: Joi.string().valid('Admin', 'Teknisi', 'User'),
+  role: Joi.string().valid('Subtekinfo', 'Padal', 'Teknisi', 'Satker'),
   theme: Joi.string().valid('light', 'dark'),
   language: Joi.string().valid('ID', 'EN')
 };
@@ -48,7 +44,7 @@ const authSchemas = {
     email: patterns.email.required(),
     password: patterns.password.required(),
     phone: patterns.phone,
-    role: patterns.role.default('User')
+    role: Joi.string().valid('Satker').default('Satker')
   }),
 
   refresh: Joi.object({
@@ -65,7 +61,6 @@ const userSchemas = {
     password: patterns.password,
     phone: patterns.phone,
     role: patterns.role.required(),
-    division_id: patterns.uuid.allow(null).optional(),
     language: patterns.language.default('ID'),
     theme: patterns.theme.default('light'),
     is_active: Joi.boolean().default(true)
@@ -76,7 +71,6 @@ const userSchemas = {
     email: patterns.email,
     username: Joi.string().min(3).max(50).trim().allow(null),
     phone: patterns.phone,
-    division_id: patterns.uuid.allow(null),
     language: patterns.language,
     theme: patterns.theme,
     is_active: Joi.boolean()
@@ -93,13 +87,25 @@ const userSchemas = {
   })
 };
 
+// Schemas baru Sesi 2
+const ratingSchema = Joi.object({
+  rating: Joi.number().integer().min(1).max(5).required()
+});
+
+const assignSchema = Joi.object({
+  padal_id: Joi.string().uuid().required()
+});
+
+const rejectSchema = Joi.object({
+  reason: Joi.string().min(5).max(1000).trim().required()
+});
+
 // Ticket schemas
 const ticketSchemas = {
   create: Joi.object({
     title: Joi.string().min(3).max(200).trim().required(),
     description: patterns.description.required(),
     location: Joi.string().max(255).allow('').optional(),
-    urgency: patterns.urgency.required(),
     category: Joi.string().min(2).max(50).trim().default('Umum'),
     user_id: patterns.uuid.optional()
   }),
@@ -107,7 +113,6 @@ const ticketSchemas = {
   update: Joi.object({
     title: Joi.string().min(5).max(200).trim(),
     description: patterns.description,
-    urgency: patterns.urgency,
     category: Joi.string().min(2).max(50).trim(),
     status: patterns.status,
     assigned_technician_id: patterns.uuid.allow(null),
@@ -119,14 +124,13 @@ const ticketSchemas = {
     page: Joi.number().integer().min(1).default(1),
     perPage: Joi.number().integer().min(1).max(100).default(20),
     status: patterns.status,
-    urgency: patterns.urgency,
     user_id: patterns.uuid,
     assigned_technician_id: patterns.uuid.allow(null),
     unassigned: Joi.boolean(),
     from: Joi.date().iso(),
     to: Joi.date().iso(),
     search: Joi.string().min(1).max(100).trim(),
-    sort: Joi.string().valid('created_at', 'updated_at', 'urgency', 'status').default('created_at'),
+    sort: Joi.string().valid('created_at', 'updated_at', 'status').default('created_at'),
     order: Joi.string().valid('asc', 'desc').default('desc')
   })
 };
@@ -217,5 +221,8 @@ module.exports = {
   messageSchemas,
   technicianSchemas,
   uploadSchemas,
-  patterns
+  patterns,
+  ratingSchema,
+  assignSchema,
+  rejectSchema
 };

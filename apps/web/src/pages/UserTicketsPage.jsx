@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import api from '@/lib/api.js';
@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
-import { Search, Filter, PlusCircle, MessageSquare, RefreshCcw, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Search, Filter, PlusCircle, RefreshCcw, ChevronRight, ChevronLeft } from 'lucide-react';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
+import { toast } from 'sonner';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -24,7 +24,7 @@ const extractItems = (payload) => {
   return [];
 };
 
-const safeFormatDate = (value, pattern = 'dd MMM yyyy') => {
+const safeFormatDate = (value, pattern = 'dd MMM yyyy, HH:mm') => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
@@ -35,13 +35,14 @@ export default function UserTicketsPage() {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortOrder, setSortOrder] = useState('urgency_desc');
+  const [sortOrder, setSortOrder] = useState('newest');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,8 +60,6 @@ export default function UserTicketsPage() {
         return { sort: 'created_at', order: 'desc' };
       case 'oldest':
         return { sort: 'created_at', order: 'asc' };
-      case 'urgency_desc':
-        return { sort: 'urgency', order: 'desc' };
       case 'completed_first':
         return { sort: 'status', order: 'desc' };
       default:
@@ -108,20 +107,32 @@ export default function UserTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
-  }, [currentUser?.id, currentPage, perPage, searchTerm, statusFilter, sortOrder, dateFrom, dateTo]);
+  }, [currentUser?.id, currentPage, perPage, searchTerm, statusFilter, sortOrder, dateFrom, dateTo, location.key]);
 
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
-    setSortOrder('urgency_desc');
+    setSortOrder('newest');
     setDateFrom('');
     setDateTo('');
     setCurrentPage(1);
     setPerPage('20');
   };
 
-  const canChat = (ticket) => {
-    return ticket.status === 'Proses' || (ticket.status === 'Pending' && ticket.urgency === 'Kritis');
+  const handleCancelTicket = async (ticketId) => {
+    const confirmed = window.confirm('Batalkan permohonan ini? Tindakan ini tidak dapat dibatalkan.');
+    if (!confirmed) return;
+
+    try {
+      await api.patch(`/tickets/${ticketId}`, {
+        status: 'Dibatalkan',
+        closed_at: new Date().toISOString(),
+      });
+      toast.success('Permohonan berhasil dibatalkan');
+      fetchTickets();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal membatalkan permohonan');
+    }
   };
 
   return (
@@ -129,19 +140,19 @@ export default function UserTicketsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center text-sm text-muted-foreground mb-1">
-            <Link to="/user/dashboard" className="hover:text-primary transition-colors">{t('nav.item.Dashboard', 'Dashboard')}</Link>
+            <Link to="/satker/dashboard" className="hover:text-primary transition-colors">{t('nav.item.Dashboard', 'Dashboard')}</Link>
             <ChevronRight className="h-3 w-3 mx-1" />
-            <span className="text-foreground font-medium">{t('nav.item.Tiket Saya', 'My Tickets')}</span>
+            <span className="text-foreground font-medium">Permohonan Saya</span>
           </div>
           <SectionHeader
-            title={t('nav.item.Tiket Saya', 'My Tickets')}
-            subtitle={t('userTickets.subtitle', 'Monitor the status and history of all tickets you reported.')}
+            title="Permohonan Saya"
+            subtitle="Pantau status dan riwayat semua permohonan yang Anda laporkan."
           />
         </div>
         <Button asChild className="shrink-0 gap-2 shadow-md shadow-primary/20">
-          <Link to="/user/create-ticket">
+          <Link to="/satker/create-ticket">
             <PlusCircle className="h-4 w-4" />
-            {t('userTickets.createNew', 'Create New Ticket')}
+            Buat Permohonan
           </Link>
         </Button>
       </div>
@@ -152,7 +163,7 @@ export default function UserTicketsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder={t('userTickets.searchPlaceholder', 'Search ticket ID or title...')} 
+                placeholder="Cari ID permohonan atau judul..." 
                 className="pl-9 bg-background"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -178,7 +189,6 @@ export default function UserTicketsPage() {
                   <SelectValue placeholder={t('common.sort', 'Sort')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="urgency_desc">{t('userTickets.sortUrgencyDesc', 'Critical -> Low')}</SelectItem>
                   <SelectItem value="newest">{t('common.newest', 'Newest')}</SelectItem>
                   <SelectItem value="oldest">{t('common.oldest', 'Oldest')}</SelectItem>
                   <SelectItem value="completed_first">{t('userTickets.completedFirst', 'Completed First')}</SelectItem>
@@ -217,12 +227,11 @@ export default function UserTicketsPage() {
             <Table className="min-w-full">
               <TableHeader className="bg-muted/40">
                 <TableRow>
-                  <TableHead className="w-[130px] px-6">{t('common.ticketId', 'Ticket ID')}</TableHead>
+                  <TableHead className="w-[130px] px-6">ID Permohonan</TableHead>
                   <TableHead>{t('common.title', 'Title')}</TableHead>
-                  <TableHead>{t('common.urgency', 'Urgency')}</TableHead>
                   <TableHead>{t('common.status', 'Status')}</TableHead>
-                  <TableHead>{t('roles.technician', 'Technician')}</TableHead>
-                  <TableHead>{t('common.date', 'Date')}</TableHead>
+                  <TableHead>Padal</TableHead>
+                  <TableHead>Tanggal/Jam</TableHead>
                   <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -232,7 +241,6 @@ export default function UserTicketsPage() {
                     <TableRow key={i}>
                       <TableCell className="px-6"><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -245,13 +253,10 @@ export default function UserTicketsPage() {
                       <TableCell className="font-medium font-mono text-sm px-6">{ticket.ticket_number}</TableCell>
                       <TableCell className="max-w-[250px] truncate font-medium" title={ticket.title}>{ticket.title}</TableCell>
                       <TableCell>
-                        <UrgencyBadge urgency={ticket.urgency} />
-                      </TableCell>
-                      <TableCell>
                         <StatusBadge status={ticket.status} />
                       </TableCell>
                       <TableCell className="text-sm">
-                        {ticket.technician_name || (
+                        {ticket.padal_name || (
                           <span className="text-muted-foreground italic">{t('userTickets.unassigned', 'Not assigned')}</span>
                         )}
                       </TableCell>
@@ -260,24 +265,34 @@ export default function UserTicketsPage() {
                       </TableCell>
                       <TableCell className="text-right px-6">
                         <div className="flex items-center justify-end gap-2 opacity-80 transition-opacity group-hover:opacity-100">
-                          {canChat(ticket) && (
-                            <Button variant="outline" size="sm" className="h-8 px-2 text-primary border-primary/20 hover:bg-primary/10" onClick={() => navigate('/user/chats')}>
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                          )}
                           <Button variant="secondary" size="sm" asChild className="h-8">
-                            <Link to={`/user/tickets/${ticket.id}`}>{t('common.detail', 'Detail')}</Link>
+                            <Link to={`/satker/tickets/${ticket.id}`}>{t('common.detail', 'Detail')}</Link>
                           </Button>
+                          {ticket.status === 'Pending' && (
+                            <>
+                              <Button variant="outline" size="sm" asChild className="h-8">
+                                <Link to={`/satker/tickets/${ticket.id}/edit`}>Edit</Link>
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => handleCancelTicket(ticket.id)}
+                              >
+                                Batalkan
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-48 text-center">
+                    <TableCell colSpan={6} className="h-48 text-center">
                       <Empty
                         variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
-                        title={t('userTickets.emptyTitle', 'No tickets found')}
+                        title="Tidak ada permohonan"
                         description={t('userTickets.emptyDesc', 'Try adjusting your search filters.')}
                       />
                     </TableCell>
@@ -291,7 +306,7 @@ export default function UserTicketsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border-t">
               <div className="text-sm text-muted-foreground">
                 {t('userTickets.showing', 'Showing')} {Math.max(1, (pagination.page - 1) * pagination.perPage + 1)}-
-                {Math.min(pagination.page * pagination.perPage, pagination.total)} {t('userTickets.of', 'of')} {pagination.total} {t('userTickets.tickets', 'tickets')}
+                {Math.min(pagination.page * pagination.perPage, pagination.total)} {t('userTickets.of', 'of')} {pagination.total} permohonan
               </div>
 
               <div className="flex items-center gap-2">

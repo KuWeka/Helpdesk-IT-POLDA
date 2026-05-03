@@ -100,6 +100,17 @@ const registerLimiter = rateLimit({
   }
 });
 
+const normalizeRole = (role) => {
+  if (!role) return 'Satker';
+  if (role === 'User' || role === 'user') return 'Satker';
+  if (role === 'Admin' || role === 'admin') return 'Subtekinfo';
+  if (role === 'Teknisi' || role === 'teknisi') return 'Teknisi';
+  if (role === 'Padal' || role === 'padal') return 'Padal';
+  if (role === 'Satker' || role === 'satker') return 'Satker';
+  if (role === 'Subtekinfo' || role === 'subtekinfo') return 'Subtekinfo';
+  return 'Satker'; // default fallback
+};
+
 // Apply rate limiters
 router.use('/login', loginLimiter);
 router.use('/register', registerLimiter);
@@ -163,7 +174,7 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
  * Body: { name: string, email: string, password: string, phone?: string }
  */
 router.post('/register', validate(authSchemas.register), asyncHandler(async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, role } = req.body;
 
   // Check if email already exists
   const emailExists = await UserService.emailExists(email);
@@ -172,12 +183,15 @@ router.post('/register', validate(authSchemas.register), asyncHandler(async (req
   }
 
   // Create user
+  // Force role to 'Satker' for self-registration regardless of what was sent
+  const finalRole = 'Satker';
+
   const user = await UserService.createUser({
     name,
     email,
     password,
     phone,
-    role: 'User'
+    role: finalRole
   });
 
   res.status(201).json(ApiResponse.success({

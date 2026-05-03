@@ -3,82 +3,79 @@ import {
   LayoutDashboard,
   Ticket,
   PlusCircle,
-  MessageSquare,
-  Settings,
   ListOrdered,
-  History,
   Users,
   UserCog,
-  ActivitySquare,
-  LogOut,
+  BarChart2,
+  Bell,
+  Settings,
 } from 'lucide-react';
 
-// Menu untuk role: USER
+// Menu untuk role: SATKER
 export const userSidebarData = {
   navGroups: [
     {
       title: 'Menu Utama',
       items: [
-        { title: 'Dashboard', url: '/user/dashboard', icon: LayoutDashboard },
-        { title: 'Tiket Saya', url: '/user/tickets', icon: Ticket },
-        { title: 'Buat Tiket', url: '/user/create-ticket', icon: PlusCircle },
-        { title: 'Chat', url: '/user/chats', icon: MessageSquare },
-        { title: 'Pengaturan', url: '/user/settings', icon: Settings },
+        { title: 'Dashboard', url: '/satker/dashboard', icon: LayoutDashboard },
+        { title: 'Buat Permohonan', url: '/satker/create-ticket', icon: PlusCircle },
+        { title: 'Permohonan Saya', url: '/satker/tickets', icon: Ticket },
+        { title: 'Notifikasi', url: '/satker/notifications', icon: Bell },
+        { title: 'Pengaturan Akun', url: '/satker/account-settings', icon: Settings },
       ],
     },
   ],
 };
 
-// Menu untuk role: TECHNICIAN
-export const technicianSidebarData = {
+// Menu untuk role: TEKNISI (read-only)
+export const teknisiSidebarData = {
   navGroups: [
     {
       title: 'Menu Teknisi',
       items: [
-        { title: 'Dashboard', url: '/technician/dashboard', icon: LayoutDashboard },
-        { title: 'Antrian Tiket', url: '/technician/queue', icon: ListOrdered },
-        { title: 'Tiket Saya', url: '/technician/tickets', icon: Ticket },
-        { title: 'Chat', url: '/technician/chats', icon: MessageSquare },
-        { title: 'Pengaturan', url: '/technician/settings', icon: Settings },
+        { title: 'Dashboard', url: '/teknisi/dashboard', icon: LayoutDashboard },
+        { title: 'Semua Permohonan', url: '/teknisi/tickets', icon: Ticket },
+        { title: 'Laporan Bulanan', url: '/teknisi/reports', icon: BarChart2 },
+        { title: 'Notifikasi', url: '/teknisi/notifications', icon: Bell },
+        { title: 'Pengaturan Akun', url: '/teknisi/account-settings', icon: Settings },
       ],
     },
   ],
 };
 
-// Menu untuk role: ADMIN
+// Menu untuk role: PADAL
+export const technicianSidebarData = {
+  navGroups: [
+    {
+      title: 'Menu Padal',
+      items: [
+        { title: 'Dashboard', url: '/padal/dashboard', icon: LayoutDashboard },
+        { title: 'Antrian Permohonan', url: '/padal/queue', icon: ListOrdered },
+        { title: 'Tiket Saya', url: '/padal/tickets', icon: Ticket },
+        { title: 'Semua Tiket', url: '/padal/all-tickets', icon: ListOrdered },
+        { title: 'Laporan Bulanan', url: '/padal/reports', icon: BarChart2 },
+        { title: 'Anggota Teknisi', url: '/padal/members', icon: Users },
+        { title: 'Notifikasi', url: '/padal/notifications', icon: Bell },
+        { title: 'Pengaturan Akun', url: '/padal/account-settings', icon: Settings },
+      ],
+    },
+  ],
+};
+
+// Menu untuk role: SUBTEKINFO
 export const adminSidebarData = {
   navGroups: [
     {
       title: 'Menu Utama',
       items: [
-        { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
-      ],
-    },
-    {
-      title: 'Manajemen Tiket',
-      items: [
-        { title: 'Semua Tiket', url: '/admin/tickets', icon: Ticket },
-        { title: 'Riwayat Tiket', url: '/admin/ticket-history', icon: History },
-      ],
-    },
-    {
-      title: 'Manajemen Pengguna',
-      items: [
-        { title: 'Kelola User', url: '/admin/users', icon: Users },
-        { title: 'Kelola Teknisi', url: '/admin/technicians', icon: UserCog },
-      ],
-    },
-    {
-      title: 'Monitoring & Laporan',
-      items: [
-        { title: 'Monitoring Chat', url: '/admin/chats', icon: MessageSquare },
-        { title: 'Log Aktivitas', url: '/admin/activity-logs', icon: ActivitySquare },
-      ],
-    },
-    {
-      title: 'Sistem',
-      items: [
-        { title: 'Pengaturan Sistem', url: '/admin/settings', icon: Settings },
+        { title: 'Dashboard', url: '/subtekinfo/dashboard', icon: LayoutDashboard },
+        { title: 'Semua Tiket', url: '/subtekinfo/tickets', icon: Ticket },
+        { title: 'Kelola Padal', url: '/subtekinfo/padal', icon: UserCog },
+        { title: 'Kelola Teknisi', url: '/subtekinfo/teknisi', icon: Users },
+        { title: 'Laporan Bulanan', url: '/subtekinfo/reports', icon: BarChart2 },
+        { title: 'Kelola User', url: '/subtekinfo/users', icon: UserCog },
+        { title: 'Notifikasi', url: '/subtekinfo/notifications', icon: Bell },
+        { title: 'Pengaturan Akun', url: '/subtekinfo/account-settings', icon: Settings },
       ],
     },
   ],
@@ -87,10 +84,12 @@ export const adminSidebarData = {
 // Helper function to get sidebar data based on role
 export function getSidebarData(role) {
   switch (role) {
-    case 'Admin':
+    case 'Subtekinfo':
       return adminSidebarData;
-    case 'Teknisi':
+    case 'Padal':
       return technicianSidebarData;
+    case 'Teknisi':
+      return teknisiSidebarData;
     default:
       return userSidebarData;
   }

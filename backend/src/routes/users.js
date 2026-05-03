@@ -12,11 +12,15 @@ const pool = require('../config/db');
 
 /**
  * GET /api/users
- * Get list of all users (Admin/Teknisi only)
+ * Get list of all users.
  * Query: role, is_active, search, limit, offset, page, perPage
  */
-router.get('/', auth, role('Admin', 'Teknisi'), validateQuery(userSchemas.list), asyncHandler(async (req, res) => {
+router.get('/', auth, role('Subtekinfo', 'Padal'), validateQuery(userSchemas.list), asyncHandler(async (req, res) => {
   const { role: filterRole, is_active, search, page, perPage, sort, order } = req.query;
+
+  if (req.user.role === 'Padal' && filterRole !== 'Teknisi') {
+    return res.status(403).json(ApiResponse.error('Padal hanya dapat melihat daftar Teknisi', null, 403));
+  }
 
   const result = await UserService.getUsers(
     { role: filterRole, is_active, search, sort, order },
@@ -33,8 +37,8 @@ router.get('/', auth, role('Admin', 'Teknisi'), validateQuery(userSchemas.list),
 router.get('/:id', auth, asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Users can only view their own profile unless they're Admin
-  if (req.user.role !== 'Admin' && req.user.id !== id) {
+  // Users can only view their own profile unless they're Subtekinfo
+  if (req.user.role !== 'Subtekinfo' && req.user.id !== id) {
     return res.status(403).json(ApiResponse.error('Tidak memiliki izin untuk melihat profil user lain', null, 403));
   }
 
@@ -52,7 +56,7 @@ router.get('/:id', auth, asyncHandler(async (req, res) => {
  * Create new user (Admin only)
  * Body: { name, email, password, phone?, role? }
  */
-router.post('/', auth, role('Admin'), validate(userSchemas.create), asyncHandler(async (req, res) => {
+router.post('/', auth, role('Subtekinfo'), validate(userSchemas.create), asyncHandler(async (req, res) => {
   const { name, email, password, phone, role: userRole } = req.body;
 
   // Check if email already exists
@@ -86,8 +90,8 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
-  // Users can only update their own profile unless they're Admin
-  if (req.user.role !== 'Admin' && req.user.id !== id) {
+  // Users can only update their own profile unless they're Subtekinfo
+  if (req.user.role !== 'Subtekinfo' && req.user.id !== id) {
     return res.status(403).json(ApiResponse.error('Tidak memiliki izin untuk mengubah profil user lain', null, 403));
   }
 
@@ -112,14 +116,6 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
 
     if (!updatedUser) {
       return res.status(404).json(ApiResponse.error('User tidak ditemukan', null, 404));
-    }
-
-    // Auto-create technician_settings row when role is changed to Teknisi
-    if (updates.role === 'Teknisi') {
-      await pool.query(
-        `INSERT IGNORE INTO technician_settings (user_id, is_active) VALUES (?, 1)`,
-        [id]
-      );
     }
 
     await invalidateAllDashboardCaches();
@@ -147,7 +143,7 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
  * DELETE /api/users/:id
  * Delete user (Admin only)
  */
-router.delete('/:id', auth, role('Admin'), asyncHandler(async (req, res) => {
+router.delete('/:id', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // Prevent self-deletion

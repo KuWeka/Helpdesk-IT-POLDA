@@ -21,7 +21,7 @@ import api from '@/lib/api';
 const toNumber = (value) => Number(value || 0);
 
 const buildNotificationsFromSummary = (summary = {}, role = 'User') => {
-  const roleLabel = role === 'Admin' ? 'Admin' : role === 'Teknisi' ? 'Teknisi' : 'User';
+  const roleLabel = role === 'Subtekinfo' ? 'Subtekinfo' : role === 'Padal' ? 'Padal' : role === 'Teknisi' ? 'Teknisi' : 'Satker';
   const pending = toNumber(summary.pending);
   const proses = toNumber(summary.proses);
   const urgent = toNumber(summary.urgent_count);
@@ -124,31 +124,41 @@ export function Header() {
     const page = segments[1] || 'dashboard';
 
     const roleLabel =
-      role === 'admin' ? t('roles.admin', 'Admin') : role === 'technician' ? t('roles.technician', 'Teknisi') : t('roles.user', 'User');
+      role === 'subtekinfo'
+        ? t('roles.subtekinfo', 'Subtekinfo')
+        : role === 'padal'
+          ? t('roles.padal', 'Padal')
+          : role === 'teknisi'
+            ? t('roles.technician', 'Teknisi')
+            : t('roles.satker', 'Satker');
 
     const mapByRole = {
-      user: {
+      satker: {
         dashboard: t('nav.item.Dashboard', 'Dashboard'),
-        'create-ticket': t('nav.item.Buat Tiket', 'Buat Tiket'),
+        'create-ticket': t('nav.item.Buat Permohonan', 'Buat Permohonan'),
         tickets: t('nav.item.Tiket Saya', 'Tiket Saya'),
-        chats: t('nav.item.Chat', 'Chat'),
+        reports: t('nav.item.Laporan Bulanan', 'Laporan Bulanan'),
         settings: t('nav.item.Pengaturan', 'Pengaturan'),
       },
-      technician: {
+      padal: {
         dashboard: t('nav.item.Dashboard', 'Dashboard'),
         queue: t('nav.item.Antrian Tiket', 'Antrian Tiket'),
         tickets: t('nav.item.Tiket Saya', 'Tiket Saya'),
-        chats: t('nav.item.Chat', 'Chat'),
-        settings: t('nav.item.Pengaturan', 'Pengaturan'),
+        reports: t('nav.item.Laporan Bulanan', 'Laporan Bulanan'),
       },
-      admin: {
+      teknisi: {
+        tickets: t('nav.item.Semua Tiket', 'Semua Tiket'),
+        reports: t('nav.item.Laporan Bulanan', 'Laporan Bulanan'),
+      },
+      subtekinfo: {
         dashboard: t('nav.item.Dashboard', 'Dashboard'),
         tickets: t('nav.item.Semua Tiket', 'Semua Tiket'),
         'ticket-history': t('nav.item.Riwayat Tiket', 'Riwayat Tiket'),
-        users: t('nav.item.Kelola User', 'Kelola User'),
-        technicians: t('nav.item.Kelola Teknisi', 'Kelola Teknisi'),
-        chats: t('nav.item.Monitoring Chat', 'Monitoring Chat'),
+        users: t('nav.item.Kelola Akun', 'Kelola Akun'),
+        technicians: t('nav.item.Kelola Padal', 'Kelola Padal'),
+        'padal-shifts': t('nav.item.Shift Padal', 'Shift Padal'),
         'activity-logs': t('nav.item.Log Aktivitas', 'Log Aktivitas'),
+        reports: t('nav.item.Laporan Bulanan', 'Laporan Bulanan'),
         settings: t('nav.item.Pengaturan Sistem', 'Pengaturan Sistem'),
       },
     };
@@ -181,7 +191,15 @@ export function Header() {
           <div className="hidden sm:flex items-center gap-2 mr-2">
             <div className="flex flex-col items-end">
               <span className="text-sm font-medium">{currentUser.name || 'User'}</span>
-              <span className="text-xs text-muted-foreground">{currentUser.role === 'Admin' ? t('roles.admin', 'Admin') : currentUser.role === 'Teknisi' ? t('roles.technician', 'Teknisi') : t('roles.user', 'User')}</span>
+              <span className="text-xs text-muted-foreground">
+                {currentUser.role === 'Subtekinfo'
+                  ? t('roles.subtekinfo', 'Subtekinfo')
+                  : currentUser.role === 'Padal'
+                    ? t('roles.padal', 'Padal')
+                    : currentUser.role === 'Teknisi'
+                      ? t('roles.technician', 'Teknisi')
+                      : t('roles.satker', 'Satker')}
+              </span>
             </div>
             <Avatar className="size-8">
               <AvatarImage src={currentUser.avatar} alt={currentUser.name || 'User'} />

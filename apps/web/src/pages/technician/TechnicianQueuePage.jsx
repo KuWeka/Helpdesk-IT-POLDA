@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { ListOrdered, Eye } from 'lucide-react';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
@@ -90,7 +89,6 @@ export default function TechnicianQueuePage() {
                 <TableRow>
                   <TableHead className="w-[130px] px-6">{t('common.ticketId', 'Ticket ID')}</TableHead>
                   <TableHead>{t('common.title', 'Title')}</TableHead>
-                  <TableHead>{t('common.urgency', 'Urgency')}</TableHead>
                   <TableHead>{t('common.division', 'Division')}</TableHead>
                   <TableHead>{t('tickets.reporter', 'Pelapor')}</TableHead>
                   <TableHead>{t('techQueue.createdDate', 'Created Date')}</TableHead>
@@ -103,7 +101,6 @@ export default function TechnicianQueuePage() {
                     <TableRow key={i}>
                       <TableCell className="px-6"><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -115,9 +112,6 @@ export default function TechnicianQueuePage() {
                     <TableRow key={ticket.id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium font-mono text-sm px-6 text-muted-foreground">{ticket.ticket_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate font-medium text-foreground" title={ticket.title}>{ticket.title}</TableCell>
-                      <TableCell>
-                        <UrgencyBadge urgency={ticket.urgency} />
-                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {ticket.reporter_division_name || '-'}
                       </TableCell>
@@ -131,7 +125,7 @@ export default function TechnicianQueuePage() {
                       </TableCell>
                       <TableCell className="text-right px-6">
                         <Button variant="outline" size="sm" asChild>
-                          <Link to={`/technician/tickets/${ticket.id}`}>
+                          <Link to={`/padal/tickets/${ticket.id}`}>
                             <Eye className="mr-1.5 h-3.5 w-3.5" /> {t('common.detail', 'Detail')}
                           </Link>
                         </Button>

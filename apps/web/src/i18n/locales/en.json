@@ -74,8 +74,8 @@
       "Antrian Tiket": "Ticket Queue",
       "Semua Tiket": "All Tickets",
       "Riwayat Tiket": "Ticket History",
-      "Kelola User": "Manage Users",
-      "Kelola Teknisi": "Manage Technicians",
+      "Kelola Akun": "Manage Accounts",
+      "Kelola Padal": "Manage Padal",
       "Monitoring Chat": "Chat Monitoring",
       "Log Aktivitas": "Activity Logs",
       "Pengaturan Sistem": "System Settings"
@@ -108,7 +108,6 @@
     "titleAndId": "Title & ID",
     "status": "Status",
     "sort": "Sort",
-    "urgency": "Urgency",
     "newest": "Newest",
     "oldest": "Oldest",
     "from": "From",
@@ -175,7 +174,6 @@
     "createNew": "Create New Ticket",
     "searchPlaceholder": "Search ticket ID or title...",
     "allStatus": "All Status",
-    "sortUrgencyDesc": "Critical -> Low",
     "completedFirst": "Completed First",
     "unassigned": "Not assigned",
     "emptyTitle": "No tickets found",
@@ -185,8 +183,7 @@
     "tickets": "tickets"
   },
   "techTickets": {
-    "subtitle": "List of tickets assigned to you.",
-    "allUrgency": "All Urgency"
+    "subtitle": "List of tickets assigned to you."
   },
   "techQueue": {
     "loadFailed": "Failed to load ticket queue. Please try again.",

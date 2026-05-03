@@ -8,8 +8,6 @@ const EXCLUDED_PATHS = new Set([
   '/auth/login',
   '/auth/register',
   '/tickets',
-  '/chats',
-  '/messages',
 ]);
 const EXCLUDED_PREFIXES = ['/uploads'];
 

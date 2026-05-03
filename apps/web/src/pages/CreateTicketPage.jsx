@@ -10,35 +10,38 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { toast } from 'sonner';
-import { Loader2, UploadCloud, File as FileIcon, X } from 'lucide-react';
+import { Loader2, UploadCloud, File as FileIcon, X, Star } from 'lucide-react';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
 
 export default function CreateTicketPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [userDivision, setUserDivision] = useState('Memuat...');
+  const [isCheckingRating, setIsCheckingRating] = useState(true);
+  const [pendingRatingTicket, setPendingRatingTicket] = useState(null);
   const [files, setFiles] = useState([]);
   
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     location: '',
-    urgency: ''
+    category: 'Umum'
   });
 
+  // Cek apakah ada permohonan Selesai yang belum dirating
+
   useEffect(() => {
-    if (currentUser?.division_id) {
-      api.get(`/divisions/${currentUser.division_id}`)
-        .then(({ data }) => setUserDivision(data?.name || 'Unknown'))
-        .catch(() => setUserDivision('Unknown'));
-    } else {
-      setUserDivision('-');
-    }
-  }, [currentUser]);
+    api.get('/tickets/pending-rating')
+      .then(({ data }) => {
+        if (data.pending && data.ticket) {
+          setPendingRatingTicket(data.ticket);
+        }
+      })
+      .catch(() => {/* tidak kritis */})
+      .finally(() => setIsCheckingRating(false));
+  }, []);
 
   const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.id]: e.target.value }));
-  const handleSelectChange = (value) => setFormData(prev => ({ ...prev, urgency: value }));
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -58,8 +61,13 @@ export default function CreateTicketPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.title || !formData.description || !formData.location || !formData.urgency) {
+    if (!formData.title || !formData.description || !formData.location) {
       toast.error('Mohon lengkapi semua field yang wajib');
+      return;
+    }
+
+    if (!formData.category) {
+      toast.error('Mohon pilih kategori permohonan');
       return;
     }
 
@@ -70,14 +78,16 @@ export default function CreateTicketPage() {
         title: formData.title,
         description: formData.description,
         location: formData.location,
-        urgency: formData.urgency,
-        category: 'Umum'
+        category: formData.category
       };
 
       const { data: ticketRecord } = await api.post('/tickets', ticketData);
 
-      // Extract ticket from response (backend wraps in ApiResponse)
-      const ticket = ticketRecord.ticket || ticketRecord;
+      // Extract ticket from ApiResponse wrapper safely
+      const ticket = ticketRecord?.data?.ticket || ticketRecord?.ticket || ticketRecord;
+      if (!ticket?.id) {
+        throw new Error('Respons permohonan tidak valid dari server');
+      }
       const ticketNumber = ticket.ticket_number || ticket.id;
 
       // Upload attachments (multipart/form-data) to the uploads endpoint.
@@ -94,23 +104,60 @@ export default function CreateTicketPage() {
         });
       }
 
-      toast.success(`Tiket ${ticketNumber} berhasil dibuat`);
-      navigate('/user/tickets');
+      toast.success(`Permohonan ${ticketNumber} berhasil dibuat`);
+      navigate('/satker/tickets');
     } catch (error) {
       const data = error.response?.data;
+      // Jika server menolak karena ada rating pending, redirect ke halaman rating
+      if (data?.pendingRating) {
+        toast.warning('Harap beri rating permohonan sebelumnya terlebih dahulu.');
+        navigate(`/satker/rating?ticket_id=${data.ticket_id}`);
+        return;
+      }
       const detail = Array.isArray(data?.errors) && data.errors.length
         ? data.errors.map(e => e.message).join(', ')
         : (data?.message || error.message);
-      toast.error('Gagal membuat tiket: ' + detail);
+      toast.error('Gagal membuat permohonan: ' + detail);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Jika ada pending rating, tampilkan banner dan blokir akses form
+  if (!isCheckingRating && pendingRatingTicket) {
+    return (
+      <div className="w-full space-y-6 animate-in fade-in duration-500">
+        <SectionHeader title="Buat Permohonan Baru" subtitle="Laporkan masalah IT Anda" />
+        <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <Star className="h-6 w-6 text-amber-500 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold text-amber-800 dark:text-amber-300">Rating Diperlukan</p>
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Anda perlu memberi rating pada permohonan{' '}
+                  <span className="font-mono font-semibold">{pendingRatingTicket.ticket_number}</span>{' '}
+                  sebelum dapat membuat permohonan baru.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate(`/satker/rating?ticket_id=${pendingRatingTicket.id}`)}
+              className="bg-amber-500 hover:bg-amber-600 text-white w-full sm:w-auto"
+            >
+              <Star className="mr-2 h-4 w-4" />
+              Beri Rating Sekarang
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="w-full space-y-6 animate-in fade-in duration-500">
       <SectionHeader
-        title="Buat Tiket Baru"
+        title="Buat Permohonan Baru"
         subtitle="Laporkan masalah IT Anda"
       />
 
@@ -121,16 +168,12 @@ export default function CreateTicketPage() {
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-muted/40 rounded-xl border border-border">
+            <div className="grid sm:grid-cols-2 md:grid-cols-2 gap-4 p-4 bg-muted/40 rounded-xl border border-border">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider">Pelapor</Label>
                 <div className="font-medium text-sm">{currentUser?.name}</div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Divisi</Label>
-                <div className="font-medium text-sm">{userDivision}</div>
-              </div>
-              <div className="space-y-1 sm:col-span-2 md:col-span-1">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider">No. Telepon</Label>
                 <div className="font-medium text-sm">{currentUser?.phone || '-'}</div>
               </div>
@@ -161,33 +204,37 @@ export default function CreateTicketPage() {
                 />
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="location">Lokasi <span className="text-destructive">*</span></Label>
-                  <Input 
-                    id="location" 
-                    placeholder="Contoh: Ruang Meeting A" 
-                    value={formData.location}
-                    onChange={handleChange}
-                    className="text-foreground"
-                    disabled={isLoading}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="urgency">Urgensi <span className="text-destructive">*</span></Label>
-                  <Select onValueChange={handleSelectChange} disabled={isLoading}>
-                    <SelectTrigger className="text-foreground">
-                      <SelectValue placeholder="Pilih tingkat urgensi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Rendah">Rendah (Dapat ditunda)</SelectItem>
-                      <SelectItem value="Sedang">Sedang (Mengganggu sebagian kerja)</SelectItem>
-                      <SelectItem value="Tinggi">Tinggi (Sangat mengganggu)</SelectItem>
-                      <SelectItem value="Kritis">Kritis (Sistem lumpuh total)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">Lokasi <span className="text-destructive">*</span></Label>
+                <Input 
+                  id="location" 
+                  placeholder="Contoh: Ruang Meeting A" 
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="text-foreground"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Kategori <span className="text-destructive">*</span></Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Pilih Kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Jaringan">Jaringan</SelectItem>
+                    <SelectItem value="Hardware">Hardware</SelectItem>
+                    <SelectItem value="Software">Software</SelectItem>
+                    <SelectItem value="Akses Sistem">Akses Sistem</SelectItem>
+                    <SelectItem value="Umum">Umum</SelectItem>
+                    <SelectItem value="Lainnya">Lainnya</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2 pt-2">
@@ -245,7 +292,7 @@ export default function CreateTicketPage() {
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isLoading ? 'Menyimpan...' : 'Kirim Tiket'}
+              {isLoading ? 'Menyimpan...' : 'Kirim Permohonan'}
             </Button>
           </CardFooter>
         </form>

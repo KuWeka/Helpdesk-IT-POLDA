@@ -16,26 +16,16 @@ const { ApiResponse } = require('../utils/apiResponse');
  */
 router.get('/', auth, asyncHandler(async (req, res) => {
   const [rows] = await pool.query(`
-    SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at, d.name as division_name,
-           ts.is_active as tech_is_active, ts.shift_start, ts.shift_end, ts.specializations, ts.max_active_tickets, ts.wa_notification
+    SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at,
+           COUNT(pm.id) AS member_count
     FROM users u
-    LEFT JOIN divisions d ON u.division_id = d.id
-    LEFT JOIN technician_settings ts ON u.id = ts.user_id
-    WHERE u.role = 'Teknisi'
+    LEFT JOIN padal_members pm ON pm.padal_id = u.id
+    WHERE u.role = 'Padal'
+    GROUP BY u.id
     ORDER BY u.name ASC
   `);
   
-  const technicians = rows.map(r => ({
-    ...r,
-    technician_settings: {
-      is_active: r.tech_is_active,
-      shift_start: r.shift_start,
-      shift_end: r.shift_end,
-      specializations: r.specializations,
-      max_active_tickets: r.max_active_tickets,
-      wa_notification: r.wa_notification
-    }
-  }));
+  const technicians = rows;
 
   res.json(ApiResponse.success({
     technicians,
@@ -51,20 +41,15 @@ router.get('/:userId', auth, asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
   // Permission check
-  if (req.user.role !== 'Admin' && req.user.id !== userId) {
+  if (req.user.role !== 'Subtekinfo' && req.user.id !== userId) {
     return res.status(403).json(ApiResponse.error('Tidak memiliki izin untuk melihat profil teknisi lain', null, 403));
   }
 
   const [rows] = await pool.query(
     `
-    SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at,
-           d.name as division_name,
-           ts.is_active as tech_is_active, ts.shift_start, ts.shift_end, ts.specializations, 
-           ts.max_active_tickets, ts.wa_notification
+    SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at
     FROM users u
-    LEFT JOIN divisions d ON u.division_id = d.id
-    LEFT JOIN technician_settings ts ON u.id = ts.user_id
-    WHERE u.role = 'Teknisi' AND u.id = ?
+    WHERE u.role = 'Padal' AND u.id = ?
     `,
     [userId]
   );
@@ -73,18 +58,7 @@ router.get('/:userId', auth, asyncHandler(async (req, res) => {
     return res.status(404).json(ApiResponse.error('Teknisi tidak ditemukan', null, 404));
   }
 
-  const row = rows[0];
-  const technician = {
-    ...row,
-    technician_settings: {
-      is_active: row.tech_is_active,
-      shift_start: row.shift_start,
-      shift_end: row.shift_end,
-      specializations: row.specializations,
-      max_active_tickets: row.max_active_tickets,
-      wa_notification: row.wa_notification
-    }
-  };
+  const technician = rows[0];
 
   res.json(ApiResponse.success({ technician }));
 }));
@@ -94,7 +68,7 @@ router.get('/:userId', auth, asyncHandler(async (req, res) => {
  * Create new technician (Admin only)
  * Body: { name, email, password, phone? }
  */
-router.post('/', auth, role('Admin'), asyncHandler(async (req, res) => {
+router.post('/', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
 
   const errors = [];
@@ -146,10 +120,8 @@ router.post('/', auth, role('Admin'), asyncHandler(async (req, res) => {
 
   await pool.query(
     'INSERT INTO users (id, name, email, password_hash, phone, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, sanitizeInput(name), email, password_hash, phone || null, 'Teknisi', 1]
+    [id, sanitizeInput(name), email, password_hash, phone || null, 'Padal', 1]
   );
-
-  await pool.query('INSERT INTO technician_settings (user_id) VALUES (?)', [id]);
 
   await invalidateAllDashboardCaches();
 
@@ -159,14 +131,13 @@ router.post('/', auth, role('Admin'), asyncHandler(async (req, res) => {
 /**
  * POST /api/technicians/promote
  * Promote existing user to technician (Admin only)
- * Body: { user_id, tech_is_active?, shift_start?, shift_end?, specializations?, max_active_tickets?, wa_notification? }
+ * Body: { user_id, tech_is_active?, shift_date?, specializations?, max_active_tickets?, wa_notification? }
  */
-router.post('/promote', auth, role('Admin'), asyncHandler(async (req, res) => {
+router.post('/promote', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const {
     user_id,
     tech_is_active,
-    shift_start,
-    shift_end,
+    shift_date,
     specializations,
     max_active_tickets,
     wa_notification,
@@ -181,39 +152,11 @@ router.post('/promote', auth, role('Admin'), asyncHandler(async (req, res) => {
     return res.status(404).json(ApiResponse.error('User tidak ditemukan', null, 404));
   }
 
-  if (users[0].role === 'Teknisi') {
-    return res.status(400).json(ApiResponse.error('User sudah menjadi Teknisi', null, 400));
+  if (users[0].role === 'Padal') {
+    return res.status(400).json(ApiResponse.error('User sudah menjadi Padal', null, 400));
   }
 
-  await pool.query('UPDATE users SET role = ? WHERE id = ?', ['Teknisi', user_id]);
-
-  const normalizedSpecializations = Array.isArray(specializations)
-    ? JSON.stringify(specializations)
-    : null;
-
-  await pool.query(
-    `
-      INSERT INTO technician_settings (
-        user_id, is_active, shift_start, shift_end, specializations, max_active_tickets, wa_notification
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        is_active = VALUES(is_active),
-        shift_start = VALUES(shift_start),
-        shift_end = VALUES(shift_end),
-        specializations = VALUES(specializations),
-        max_active_tickets = VALUES(max_active_tickets),
-        wa_notification = VALUES(wa_notification)
-    `,
-    [
-      user_id,
-      tech_is_active !== undefined ? (tech_is_active ? 1 : 0) : 1,
-      shift_start || '09:00:00',
-      shift_end || '17:00:00',
-      normalizedSpecializations,
-      max_active_tickets || 5,
-      wa_notification ? 1 : 0,
-    ]
-  );
+  await pool.query('UPDATE users SET role = ? WHERE id = ?', ['Padal', user_id]);
 
   await invalidateAllDashboardCaches();
 
@@ -224,7 +167,7 @@ router.post('/promote', auth, role('Admin'), asyncHandler(async (req, res) => {
  * PATCH /api/technicians/:id/downgrade
  * Downgrade technician to user (Admin only)
  */
-router.patch('/:id/downgrade', auth, role('Admin'), asyncHandler(async (req, res) => {
+router.patch('/:id/downgrade', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // Prevent self-downgrade
@@ -233,13 +176,12 @@ router.patch('/:id/downgrade', auth, role('Admin'), asyncHandler(async (req, res
   }
 
   // Verify user is technician
-  const [techExists] = await pool.query('SELECT id FROM users WHERE id = ? AND role = ?', [id, 'Teknisi']);
+  const [techExists] = await pool.query('SELECT id FROM users WHERE id = ? AND role = ?', [id, 'Padal']);
   if (techExists.length === 0) {
-    return res.status(404).json(ApiResponse.error('Teknisi tidak ditemukan', null, 404));
+    return res.status(404).json(ApiResponse.error('Padal tidak ditemukan', null, 404));
   }
 
-  await pool.query('UPDATE users SET role = ? WHERE id = ?', ['User', id]);
-  await pool.query('DELETE FROM technician_settings WHERE user_id = ?', [id]);
+  await pool.query('UPDATE users SET role = ? WHERE id = ?', ['Satker', id]);
 
   await invalidateAllDashboardCaches();
 
@@ -248,13 +190,12 @@ router.patch('/:id/downgrade', auth, role('Admin'), asyncHandler(async (req, res
 
 router.patch('/:userId/status', auth, asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  if (req.user.role !== 'Admin' && req.user.id !== userId) {
+  if (req.user.role !== 'Subtekinfo' && req.user.id !== userId) {
     return res.status(403).json(ApiResponse.error('Forbidden', null, 403));
   }
 
   const { is_active } = req.body;
   await pool.query('UPDATE users SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, userId]);
-  await pool.query('UPDATE technician_settings SET is_active = ? WHERE user_id = ?', [is_active ? 1 : 0, userId]);
   await invalidateAllDashboardCaches();
 
   res.json(ApiResponse.success(null, 'Updated'));
@@ -262,7 +203,7 @@ router.patch('/:userId/status', auth, asyncHandler(async (req, res) => {
 
 // Update technician
 router.patch('/:id', auth, asyncHandler(async (req, res) => {
-  if (req.user.role !== 'Admin' && req.user.id !== req.params.id) {
+  if (req.user.role !== 'Subtekinfo' && req.user.id !== req.params.id) {
     return res.status(403).json(ApiResponse.error('Forbidden', null, 403));
   }
 
@@ -280,7 +221,7 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
       userSets.push(`${key} = ?`);
       userArgs.push(updates[key]);
     }
-    if (['shift_start', 'shift_end', 'specializations', 'max_active_tickets', 'wa_notification'].includes(key)) {
+    if (['shift_date', 'specializations', 'max_active_tickets', 'wa_notification'].includes(key)) {
       techSets.push(`${key} = ?`);
       techArgs.push(typeof updates[key] === 'object' ? JSON.stringify(updates[key]) : updates[key]);
     }
@@ -296,12 +237,7 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
     await pool.query(`UPDATE users SET ${userSets.join(', ')} WHERE id = ?`, userArgs);
   }
 
-  if (techSets.length > 0) {
-    // Ensure row exists before updating (upsert pattern)
-    await pool.query(`INSERT IGNORE INTO technician_settings (user_id, is_active) VALUES (?, 1)`, [id]);
-    techArgs.push(id);
-    await pool.query(`UPDATE technician_settings SET ${techSets.join(', ')} WHERE user_id = ?`, techArgs);
-  }
+  // technician_settings table has been removed in migration 001_revision_schema.sql
 
   await invalidateAllDashboardCaches();
 

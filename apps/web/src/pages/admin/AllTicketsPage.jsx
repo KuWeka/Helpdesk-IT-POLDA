@@ -27,12 +27,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog.jsx';
 import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
-import { Search, Filter, RefreshCcw, Trash2, Eye, MoreHorizontal } from 'lucide-react';
+import { Search, Filter, RefreshCcw, Trash2, Eye, MoreHorizontal, UserPlus, UserMinus, XCircle } from 'lucide-react';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
+import AssignPadalModal from '@/components/modals/AssignPadalModal.jsx';
+import RejectTicketModal from '@/components/modals/RejectTicketModal.jsx';
 
 const extractItems = (payload) => {
   if (Array.isArray(payload?.data)) return payload.data;
@@ -56,14 +57,15 @@ export default function AllTicketsPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
   const [techFilter, setTechFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [rejectTarget, setRejectTarget] = useState(null);
 
   useEffect(() => {
-    api.get('/users', { params: { role: 'Teknisi', sort: 'name', order: 'asc', perPage: 200 } })
+    api.get('/users', { params: { role: 'Padal', sort: 'name', order: 'asc', perPage: 100 } })
       .then(({ data }) => setTechnicians(extractItems(data)))
       .catch(console.error);
   }, []);
@@ -74,7 +76,6 @@ export default function AllTicketsPage() {
       let filterStr = `id != ""`;
       
       if (statusFilter !== 'all') filterStr += ` && status = "${statusFilter}"`;
-      if (urgencyFilter !== 'all') filterStr += ` && urgency = "${urgencyFilter}"`;
       if (techFilter !== 'all') filterStr += ` && assigned_technician_id = "${techFilter}"`;
       if (searchTerm) filterStr += ` && (title ~ "${searchTerm}" || ticket_number ~ "${searchTerm}")`;
       if (dateFrom) filterStr += ` && created >= "${dateFrom} 00:00:00"`;
@@ -85,7 +86,6 @@ export default function AllTicketsPage() {
           page: 1,
           perPage: 50,
           status: statusFilter !== 'all' ? statusFilter : undefined,
-          urgency: urgencyFilter !== 'all' ? urgencyFilter : undefined,
           technician_id: techFilter !== 'all' ? techFilter : undefined,
           search: searchTerm || undefined,
           from: dateFrom || undefined,
@@ -103,10 +103,10 @@ export default function AllTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
-  }, [searchTerm, statusFilter, urgencyFilter, techFilter, dateFrom, dateTo]);
+  }, [searchTerm, statusFilter, techFilter, dateFrom, dateTo]);
 
   const resetFilters = () => {
-    setSearchTerm(''); setStatusFilter('all'); setUrgencyFilter('all');
+    setSearchTerm(''); setStatusFilter('all');
     setTechFilter('all'); setDateFrom(''); setDateTo('');
   };
 
@@ -118,6 +118,16 @@ export default function AllTicketsPage() {
     } catch (error) {
       console.error('Delete error:', error.response || error);
       toast.error(t('adminTickets.deleteFailed', 'Failed to delete ticket') + ': ' + (error.response?.message || error.message));
+    }
+  };
+
+  const handleUnassign = async (ticketId) => {
+    try {
+      await api.delete(`/tickets/${ticketId}/assign`);
+      toast.success('Assignment berhasil dihapus');
+      fetchTickets();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal menghapus assignment');
     }
   };
 
@@ -147,16 +157,6 @@ export default function AllTicketsPage() {
                   <SelectItem value="Ditolak">Ditolak</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-                <SelectTrigger className="w-[140px] bg-background"><SelectValue placeholder={t('common.urgency', 'Urgency')} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('techTickets.allUrgency', 'All Urgency')}</SelectItem>
-                  <SelectItem value="Rendah">Rendah</SelectItem>
-                  <SelectItem value="Sedang">Sedang</SelectItem>
-                  <SelectItem value="Tinggi">Tinggi</SelectItem>
-                  <SelectItem value="Kritis">Kritis</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={techFilter} onValueChange={setTechFilter}>
                 <SelectTrigger className="w-[160px] bg-background"><SelectValue placeholder={t('roles.technician', 'Technician')} /></SelectTrigger>
                 <SelectContent>
@@ -180,7 +180,6 @@ export default function AllTicketsPage() {
                   <TableHead className="w-[120px] px-6">{t('common.ticketId', 'Ticket ID')}</TableHead>
                   <TableHead>{t('common.title', 'Title')}</TableHead>
                   <TableHead>{t('common.status', 'Status')}</TableHead>
-                  <TableHead>{t('common.urgency', 'Urgency')}</TableHead>
                   <TableHead>{t('tickets.reporter', 'Reporter')}</TableHead>
                   <TableHead>{t('roles.technician', 'Technician')}</TableHead>
                   <TableHead>{t('common.date', 'Date')}</TableHead>
@@ -194,7 +193,6 @@ export default function AllTicketsPage() {
                       <TableCell className="px-6"><Skeleton className="h-5 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-20" /></TableCell>
@@ -207,9 +205,8 @@ export default function AllTicketsPage() {
                       <TableCell className="font-medium font-mono text-xs px-6 text-muted-foreground">{ticket.ticket_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate font-medium text-foreground" title={ticket.title}>{ticket.title}</TableCell>
                       <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                      <TableCell><UrgencyBadge urgency={ticket.urgency} /></TableCell>
                       <TableCell className="text-sm truncate max-w-[120px]">{ticket.reporter_name || ticket.user_id || '-'}</TableCell>
-                      <TableCell className="text-sm truncate max-w-[120px]">{ticket.technician_name || ticket.assigned_technician_id || '-'}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[120px]">{ticket.padal_name || '-'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{safeFormatDate(ticket.created_at || ticket.created)}</TableCell>
                       <TableCell className="text-right px-6">
                         <DropdownMenu>
@@ -221,11 +218,32 @@ export default function AllTicketsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link to={`/admin/tickets/${ticket.id}`}>
+                              <Link to={`/subtekinfo/tickets/${ticket.id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 {t('common.viewDetail', 'View Detail')}
                               </Link>
                             </DropdownMenuItem>
+                            {(ticket.status === 'Pending' || !ticket.padal_id) && (
+                              <DropdownMenuItem onClick={() => setAssignTarget(ticket)}>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Assign Padal
+                              </DropdownMenuItem>
+                            )}
+                            {ticket.status === 'Pending' && (
+                              <DropdownMenuItem
+                                className="text-amber-600 focus:text-amber-600"
+                                onClick={() => setRejectTarget(ticket)}
+                              >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Tolak Tiket
+                              </DropdownMenuItem>
+                            )}
+                            {ticket.padal_id && ticket.status !== 'Selesai' && ticket.status !== 'Dibatalkan' && (
+                              <DropdownMenuItem onClick={() => handleUnassign(ticket.id)}>
+                                <UserMinus className="mr-2 h-4 w-4" />
+                                Hapus Assignment
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
@@ -254,6 +272,20 @@ export default function AllTicketsPage() {
             </Table>
           </div>
       </div>
+
+      <AssignPadalModal
+        open={!!assignTarget}
+        onOpenChange={(open) => !open && setAssignTarget(null)}
+        ticket={assignTarget}
+        onSuccess={fetchTickets}
+      />
+
+      <RejectTicketModal
+        open={!!rejectTarget}
+        onOpenChange={(open) => !open && setRejectTarget(null)}
+        ticket={rejectTarget}
+        onSuccess={fetchTickets}
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

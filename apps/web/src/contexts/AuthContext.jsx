@@ -9,18 +9,38 @@ const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
 
+const normalizeRole = (role) => {
+  if (!role) return 'Satker';
+  if (role === 'Admin' || role === 'admin') return 'Subtekinfo';
+  if (role === 'User' || role === 'user') return 'Satker';
+  return role;
+};
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = localStorage.getItem('helpdesk_user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    if (!savedUser) return null;
+    try {
+      return JSON.parse(savedUser);
+    } catch (_) {
+      localStorage.removeItem('helpdesk_user');
+      return null;
+    }
   });
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    let mounted = true;
+    const fallbackTimer = setTimeout(() => {
+      if (mounted) {
+        setIsLoading(false);
+      }
+    }, 7000);
+
     const checkAuth = async () => {
       try {
-        const res = await api.get('/auth/me');
+        const res = await api.get('/auth/me', { timeout: 6000 });
         let user = res.data?.data?.user || null;
         let csrfToken = res.data?.data?.csrfToken;
 
@@ -42,13 +62,19 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        setCurrentUser(user);
+        if (!mounted) return;
+        const normalizedUser = user ? { ...user, role: normalizeRole(user.role) } : null;
+        setCurrentUser(normalizedUser);
 
-        if (user) {
-          localStorage.setItem('helpdesk_user', JSON.stringify(user));
+        if (normalizedUser) {
+          localStorage.setItem('helpdesk_user', JSON.stringify(normalizedUser));
           if (csrfToken) {
             localStorage.setItem('helpdesk_csrf_token', csrfToken);
           }
+          // Connect socket dan join room sesuai role
+          if (!socket.connected) socket.connect();
+          socket.emit('join_user_room', normalizedUser.id);
+          if (normalizedUser.role === 'Subtekinfo') socket.emit('join_subtekinfo_room');
         } else {
           localStorage.removeItem('helpdesk_user');
           localStorage.removeItem('helpdesk_csrf_token');
@@ -56,13 +82,23 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         localStorage.removeItem('helpdesk_user');
         localStorage.removeItem('helpdesk_csrf_token');
-        setCurrentUser(null);
+        if (mounted) {
+          setCurrentUser(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          clearTimeout(fallbackTimer);
+          setIsLoading(false);
+        }
       }
     };
 
     checkAuth();
+
+    return () => {
+      mounted = false;
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   const login = async (identifier, password) => {
@@ -75,19 +111,27 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Data user tidak ditemukan');
       }
 
-      localStorage.setItem('helpdesk_user', JSON.stringify(user));
+      const normalizedUser = { ...user, role: normalizeRole(user.role) };
+
+      localStorage.setItem('helpdesk_user', JSON.stringify(normalizedUser));
       if (csrfToken) {
         localStorage.setItem('helpdesk_csrf_token', csrfToken);
       }
       
-      setCurrentUser(user);
+      setCurrentUser(normalizedUser);
       
-      const role = user.role || 'User';
-      if (role === 'Admin') navigate('/admin/dashboard');
-      else if (role === 'Teknisi') navigate('/technician/dashboard');
-      else navigate('/user/dashboard');
+      const role = normalizedUser.role || 'Satker';
+      // Connect socket dan join room sesuai role
+      if (!socket.connected) socket.connect();
+      socket.emit('join_user_room', normalizedUser.id);
+      if (role === 'Subtekinfo') socket.emit('join_subtekinfo_room');
+
+      if (role === 'Subtekinfo') navigate('/subtekinfo/dashboard');
+      else if (role === 'Padal') navigate('/padal/dashboard');
+      else if (role === 'Teknisi') navigate('/teknisi/dashboard');
+      else navigate('/satker/dashboard');
       
-      return user;
+      return normalizedUser;
     } catch (error) {
       console.error('Login error:', error);
       throw new Error(error.response?.data?.message || 'Email/Username atau password salah');
@@ -143,7 +187,11 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!isLoading && children}
+      {isLoading ? (
+        <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+          <div className="text-sm text-muted-foreground">Memuat sesi...</div>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 };

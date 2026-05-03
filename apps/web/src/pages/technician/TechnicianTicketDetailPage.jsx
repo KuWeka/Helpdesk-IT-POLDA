@@ -10,9 +10,8 @@ import { Empty, EMPTY_STATE_VARIANTS } from '@/components/ui/empty.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
-import { MessageSquare, Calendar, User, MapPin, Download, AlertCircle, Phone, CheckCircle2, XCircle, FileImage as FileIcon, Activity, Loader2, FileText, Hand } from 'lucide-react';
+import { Calendar, User, MapPin, Download, AlertCircle, Phone, CheckCircle2, XCircle, FileImage as FileIcon, Activity, Loader2, FileText, Hand } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -204,7 +203,7 @@ export default function TechnicianTicketDetailPage() {
           </p>
         </div>
         <div className="flex gap-3 mt-4">
-          <Button variant="outline" onClick={() => navigate('/technician/dashboard')}>Kembali ke Dashboard</Button>
+          <Button variant="outline" onClick={() => navigate('/padal/dashboard')}>Kembali ke Dashboard</Button>
           <Button onClick={fetchTicketData}>Coba Lagi</Button>
         </div>
       </div>
@@ -218,7 +217,7 @@ export default function TechnicianTicketDetailPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 pb-12">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-        <Link to="/technician/tickets" className="hover:text-primary transition-colors font-medium">Tiket Saya</Link>
+        <Link to="/padal/tickets" className="hover:text-primary transition-colors font-medium">Tiket Saya</Link>
         <span>/</span>
         <span className="text-foreground font-medium">{ticket.ticket_number}</span>
       </div>
@@ -230,19 +229,11 @@ export default function TechnicianTicketDetailPage() {
               {ticket.ticket_number}
             </span>
             <StatusBadge status={ticket.status} />
-            <UrgencyBadge urgency={ticket.urgency} />
           </div>
           <SectionHeader title={ticket.title} />
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
-          {ticket.status === 'Proses' && (
-            <Button variant="outline" className="gap-2 border-primary text-primary hover:bg-primary/10 shadow-sm" onClick={() => navigate('/technician/chats')}>
-              <MessageSquare className="h-4 w-4" />
-              Chat Pelapor
-            </Button>
-          )}
-          
           {isAvailableToTake && (
             <Button 
               onClick={handleTakeTicket} 

@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog.jsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import StatusBadge from '@/components/tickets/StatusBadge.jsx';
-import UrgencyBadge from '@/components/tickets/UrgencyBadge.jsx';
 import SectionHeader from '@/components/common/SectionHeader.jsx';
-import { ArrowLeft, Calendar, User, MapPin, AlertCircle, CheckCircle2, Trash2, UserPlus, Loader2, Download, FileImage as FileIcon } from 'lucide-react';
+import RejectTicketModal from '@/components/modals/RejectTicketModal.jsx';
+import AssignPadalModal from '@/components/modals/AssignPadalModal.jsx';
+import { ArrowLeft, Calendar, User, MapPin, AlertCircle, CheckCircle2, Trash2, UserPlus, Loader2, Download, FileImage as FileIcon, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -50,13 +50,12 @@ export default function AdminTicketDetailPage() {
   const [ticket, setTicket] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [technicians, setTechnicians] = useState([]);
 
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isAssignPadalOpen, setIsAssignPadalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   
-  const [selectedTechId, setSelectedTechId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchTicketData = async () => {
@@ -79,7 +78,6 @@ export default function AdminTicketDetailPage() {
     try {
       const { data } = await api.get('/technicians');
       const techs = extractTechnicians(data).filter((tech) => tech.is_active !== false);
-      setTechnicians(techs);
     } catch (err) {
       console.error('Error fetching technicians:', err);
     }
@@ -87,7 +85,7 @@ export default function AdminTicketDetailPage() {
 
   useEffect(() => {
     fetchTicketData();
-    if (currentUser?.role === 'Admin') {
+    if (currentUser?.role === 'Subtekinfo') {
       fetchTechnicians();
     }
   }, [id, currentUser]);
@@ -105,7 +103,7 @@ export default function AdminTicketDetailPage() {
       fetchTicketData();
     } catch (error) {
       console.error('Force complete error:', error.response || error);
-      toast.error('Gagal menyelesaikan tiket: ' + (error.response?.message || error.message));
+      toast.error('Gagal menyelesaikan tiket: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsProcessing(false);
     }
@@ -117,36 +115,17 @@ export default function AdminTicketDetailPage() {
       await api.delete(`/tickets/${id}`);
       toast.success('Tiket berhasil dihapus');
       setIsDeleteModalOpen(false);
-      navigate('/admin/tickets');
+      navigate('/subtekinfo/tickets');
     } catch (error) {
       console.error('Delete error:', error.response || error);
-      toast.error('Gagal menghapus tiket: ' + (error.response?.message || error.message));
+      toast.error('Gagal menghapus tiket: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleAssignTech = async () => {
-    if (!selectedTechId) {
-      toast.error('Pilih teknisi terlebih dahulu');
-      return;
-    }
-    setIsProcessing(true);
-    try {
-      await api.patch(`/tickets/${id}`, {
-        assigned_technician_id: selectedTechId,
-        status: ticket.status === 'Pending' ? 'Proses' : ticket.status
-      });
-      
-      toast.success('Teknisi berhasil diassign');
-      setIsAssignModalOpen(false);
-      fetchTicketData();
-    } catch (error) {
-      console.error('Assign error details:', error.response || error);
-      toast.error('Gagal mengassign teknisi: ' + (error.response?.message || error.message));
-    } finally {
-      setIsProcessing(false);
-    }
+    // Legacy: kept for reference only - use AssignPadalModal instead
   };
 
   if (isLoading) {
@@ -163,19 +142,19 @@ export default function AdminTicketDetailPage() {
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <AlertCircle className="h-12 w-12 text-destructive" />
         <h2 className="text-2xl font-bold">Tiket tidak ditemukan</h2>
-        <Button onClick={() => navigate('/admin/tickets')}>Kembali ke Daftar Tiket</Button>
+        <Button onClick={() => navigate('/subtekinfo/tickets')}>Kembali ke Daftar Tiket</Button>
       </div>
     );
   }
 
-  const isAdmin = currentUser?.role === 'Admin';
+  const isAdmin = currentUser?.role === 'Subtekinfo';
   const reporterName = ticket.reporter_name || ticket.user_id || 'Unknown';
-  const techName = ticket.technician_name || ticket.assigned_technician_id || 'Belum ada teknisi';
+  const padalName = ticket.padal_id?.name || ticket.padal_name || 'Belum ada Padal';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-12">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-        <Link to="/admin/tickets" className="hover:text-primary transition-colors flex items-center gap-1">
+        <Link to="/subtekinfo/tickets" className="hover:text-primary transition-colors flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" /> Semua Tiket
         </Link>
         <span>/</span>
@@ -189,7 +168,6 @@ export default function AdminTicketDetailPage() {
               {ticket.ticket_number}
             </span>
             <StatusBadge status={ticket.status} />
-            <UrgencyBadge urgency={ticket.urgency} />
           </div>
           <SectionHeader title={ticket.title} />
         </div>
@@ -199,10 +177,19 @@ export default function AdminTicketDetailPage() {
             <Button 
               variant="outline" 
               className="border-blue-200 text-blue-600 hover:bg-blue-50"
-              onClick={() => setIsAssignModalOpen(true)}
+              onClick={() => setIsAssignPadalOpen(true)}
             >
-              <UserPlus className="h-4 w-4 mr-2" /> Assign Teknisi
+              <UserPlus className="h-4 w-4 mr-2" /> Assign Padal
             </Button>
+            {ticket.status !== 'Selesai' && ticket.status !== 'Dibatalkan' && ticket.status !== 'Ditolak' && (
+              <Button
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50"
+                onClick={() => setIsRejectModalOpen(true)}
+              >
+                <XCircle className="h-4 w-4 mr-2" /> Tolak Tiket
+              </Button>
+            )}
             {ticket.status !== 'Selesai' && ticket.status !== 'Dibatalkan' && ticket.status !== 'Ditolak' && (
               <Button 
                 variant="destructive" 
@@ -271,9 +258,9 @@ export default function AdminTicketDetailPage() {
                 </div>
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Teknisi Assigned</h4>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Padal Assigned</h4>
                 <div className="flex items-center gap-2 text-foreground font-medium">
-                  <User className="h-4 w-4 text-primary" /> {techName}
+                  <User className="h-4 w-4 text-primary" /> {padalName}
                 </div>
               </div>
             </div>
@@ -335,34 +322,19 @@ export default function AdminTicketDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Teknisi</DialogTitle>
-            <DialogDescription>
-              Pilih teknisi untuk menangani tiket ini.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Select value={selectedTechId} onValueChange={setSelectedTechId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Teknisi" />
-              </SelectTrigger>
-              <SelectContent>
-                {technicians.map(tech => (
-                  <SelectItem key={tech.id} value={tech.id}>{tech.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAssignModalOpen(false)} disabled={isProcessing}>Batal</Button>
-            <Button onClick={handleAssignTech} disabled={isProcessing || !selectedTechId} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {isProcessing ? 'Menyimpan...' : 'Simpan Assign'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AssignPadalModal
+        open={isAssignPadalOpen}
+        onOpenChange={setIsAssignPadalOpen}
+        ticket={ticket}
+        onSuccess={() => { setIsAssignPadalOpen(false); fetchTicketData(); }}
+      />
+
+      <RejectTicketModal
+        open={isRejectModalOpen}
+        onOpenChange={setIsRejectModalOpen}
+        ticket={ticket}
+        onSuccess={() => { setIsRejectModalOpen(false); fetchTicketData(); }}
+      />
     </div>
   );
 }
