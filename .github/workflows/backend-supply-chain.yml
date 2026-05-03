@@ -52,7 +52,7 @@ jobs:
           output: trivy-fs.sarif
 
       - name: Upload FS SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         continue-on-error: true
         with:
           sarif_file: trivy-fs.sarif
@@ -98,7 +98,7 @@ jobs:
           exit-code: '0'
 
       - name: Upload Image SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         continue-on-error: true
         with:
           sarif_file: trivy-image.sarif
