@@ -14,7 +14,7 @@ async function processExpiredAssignment(io, assignment) {
 
     const [assignmentUpdate] = await conn.query(
       `UPDATE ticket_assignments
-       SET status = 'expired', responded_at = NOW(), updated_at = NOW()
+       SET status = 'expired', responded_at = NOW()
        WHERE id = ? AND status = 'pending_confirm'`,
       [assignment.assignment_id]
     );

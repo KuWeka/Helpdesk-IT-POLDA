@@ -2,8 +2,32 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../config/db');
 const { cache } = require('../utils/cache');
+const { normalizeRole } = require('../config/roles');
 
 class UserService {
+  static toLegacyRole(role) {
+    switch (role) {
+      case 'Subtekinfo':
+        return 'Admin';
+      case 'Padal':
+        return 'Teknisi';
+      case 'Satker':
+        return 'User';
+      case 'Teknisi':
+      default:
+        return role;
+    }
+  }
+
+  static isRoleTruncationError(error) {
+    const code = error?.code;
+    const message = String(error?.message || '');
+    return code === 'WARN_DATA_TRUNCATED'
+      || code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD'
+      || /Data truncated for column 'role'/i.test(message)
+      || /Incorrect .* value .* for column 'role'/i.test(message);
+  }
+
   static buildKey(prefix, payload = {}) {
     const serialized = Object.entries(payload)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -147,7 +171,7 @@ class UserService {
       username: userData.username || null,
       password_hash: passwordHash,
       phone: userData.phone || null,
-      role: userData.role,
+      role: normalizeRole(userData.role),
       language: userData.language || 'ID',
       theme: userData.theme || 'light',
       is_active: userData.is_active !== undefined ? userData.is_active : true,
@@ -155,15 +179,30 @@ class UserService {
       updated_at: new Date()
     };
 
-    await pool.query(`
+    const insertSql = `
       INSERT INTO users (id, name, email, username, password_hash, phone, role,
                         language, theme, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `;
+    const insertParams = [
       user.id, user.name, user.email, user.username, user.password_hash,
       user.phone, user.role, user.language, user.theme,
       user.is_active, user.created_at, user.updated_at
-    ]);
+    ];
+
+    try {
+      await pool.query(insertSql, insertParams);
+    } catch (error) {
+      if (!this.isRoleTruncationError(error)) {
+        throw error;
+      }
+
+      // Backward compatibility: some deployments still use legacy ENUM values.
+      const legacyRole = this.toLegacyRole(user.role);
+      insertParams[6] = legacyRole;
+      await pool.query(insertSql, insertParams);
+      user.role = normalizeRole(legacyRole);
+    }
 
     // Invalidate user caches
     await this.invalidateUserCaches(id);

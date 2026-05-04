@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { parseCookies } = require('../utils/cookies');
 const cache = require('../utils/cache');
@@ -22,7 +23,8 @@ const socketHandler = (io) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Check token blacklist — prevents logged-out users from using WebSocket
-      const isBlacklisted = await cache.exists(`token:blacklist:${decoded.id}`);
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const isBlacklisted = await cache.exists(`token:blacklist:${tokenHash}`);
       if (isBlacklisted) {
         logger.warn('Socket connection rejected: token blacklisted (user logged out)', { socketId: socket.id });
         return next(new Error('Session telah berakhir'));

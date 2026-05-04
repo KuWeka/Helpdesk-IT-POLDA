@@ -137,6 +137,7 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
   }
 
   const user = rows[0];
+  const normalizedRole = normalizeRole(user.role);
 
   const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) {
@@ -148,7 +149,7 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
   const accessToken = jwt.sign(
     {
       id: user.id,
-      role: user.role,
+      role: normalizedRole,
       name: user.name,
       email: user.email
     },
@@ -165,6 +166,7 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
   const csrfToken = issueAuthCookies(res, accessToken, refreshToken);
 
   delete user.password_hash;
+  user.role = normalizedRole;
 
   res.json(ApiResponse.success({
     user,
@@ -232,11 +234,13 @@ router.post('/refresh', asyncHandler(async (req, res) => {
       return res.status(401).json(ApiResponse.error('User tidak ditemukan atau tidak aktif', null, 401));
     }
 
+    const normalizedRole = normalizeRole(user.role);
+
     // Generate new access token
     const newAccessToken = jwt.sign(
       {
         id: user.id,
-        role: user.role,
+        role: normalizedRole,
         name: user.name,
         email: user.email
       },
@@ -271,10 +275,13 @@ router.post('/refresh', asyncHandler(async (req, res) => {
  */
 router.post('/logout', auth, asyncHandler(async (req, res) => {
   clearAuthCookies(res);
-  // Blacklist the access token in Redis so it cannot be reused even before natural expiry.
-  // Key is per-user so a global logout (e.g. password change) can also be done with one write.
+  // Blacklist only the exact access token used for this session.
+  // This prevents a previous logout from invalidating all future tokens for the same user.
   const ttlSeconds = Math.ceil(accessTokenMaxAge / 1000);
-  await cache.set(`token:blacklist:${req.user.id}`, Date.now(), ttlSeconds);
+  if (req.authToken) {
+    const tokenHash = crypto.createHash('sha256').update(req.authToken).digest('hex');
+    await cache.set(`token:blacklist:${tokenHash}`, Date.now(), ttlSeconds);
+  }
   return res.json(ApiResponse.success(null, 'Logout berhasil'));
 }));
 
@@ -288,6 +295,8 @@ router.get('/me', auth, asyncHandler(async (req, res) => {
   if (!user) {
     return res.status(404).json(ApiResponse.error('User tidak ditemukan', null, 404));
   }
+
+  user.role = normalizeRole(user.role);
 
   // Re-issue CSRF token so cross-origin clients (e.g. Vercel) can store it
   const csrfToken = crypto.randomBytes(32).toString('hex');

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { parseCookies } = require('../utils/cookies');
 const cache = require('../utils/cache');
 
@@ -54,7 +55,8 @@ const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
 
     // Check token blacklist (set on logout) to support immediate revocation
-    const isBlacklisted = await cache.exists(`token:blacklist:${decoded.id}`);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const isBlacklisted = await cache.exists(`token:blacklist:${tokenHash}`);
     if (isBlacklisted) {
       return res.status(401).json({
         success: false,
@@ -63,6 +65,7 @@ const auth = async (req, res, next) => {
     }
 
     req.user = decoded;
+    req.authToken = token;
     
     next();
   } catch (error) {
