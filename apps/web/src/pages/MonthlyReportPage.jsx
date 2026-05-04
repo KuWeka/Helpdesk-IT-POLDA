@@ -53,6 +53,7 @@ export default function MonthlyReportPage() {
 
   const handleExport = async (format) => {
     setIsExporting(format);
+    const toastId = toast.loading(`Sedang menyiapkan laporan ${format.toUpperCase()}... Mohon tunggu.`);
     try {
       const response = await api.get('/reports/monthly/export', {
         params: { month, year, format },
@@ -70,8 +71,9 @@ export default function MonthlyReportPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      toast.success(`Laporan ${format.toUpperCase()} berhasil diunduh`, { id: toastId });
     } catch {
-      toast.error('Gagal mengunduh laporan');
+      toast.error('Gagal mengunduh laporan. Coba lagi.', { id: toastId });
     } finally {
       setIsExporting(null);
     }
@@ -129,23 +131,21 @@ export default function MonthlyReportPage() {
                   variant="outline"
                   className="gap-2 ml-auto"
                   onClick={() => handleExport('xlsx')}
-                  disabled={!!isExporting}
+                  disabled={isExporting !== null}
                 >
                   {isExporting === 'xlsx'
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <FileSpreadsheet className="h-4 w-4 text-green-600" />}
-                  Download Excel
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Menyiapkan...</>
+                    : <><FileSpreadsheet className="h-4 w-4 text-green-600" /> Download Excel</>}
                 </Button>
                 <Button
                   variant="outline"
                   className="gap-2"
                   onClick={() => handleExport('pdf')}
-                  disabled={!!isExporting}
+                  disabled={isExporting !== null}
                 >
                   {isExporting === 'pdf'
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <FileText className="h-4 w-4 text-red-600" />}
-                  Download PDF
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Menyiapkan...</>
+                    : <><FileText className="h-4 w-4 text-red-600" /> Download PDF</>}
                 </Button>
               </>
             )}

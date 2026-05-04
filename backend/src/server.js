@@ -21,6 +21,7 @@ const logger = require('./utils/logger');
 const { cache } = require('./utils/cache');
 const { metricsMiddleware } = require('./utils/metrics');
 const { warmStartupCache } = require('./utils/cacheWarmup');
+const { startAssignmentTimeoutCron } = require('./services/AssignmentTimeoutService');
 
 const isSwaggerEnabled = () => {
   // Swagger is NEVER available in production, regardless of env vars
@@ -352,6 +353,7 @@ if (NODE_ENV !== 'test') {
       port: PORT,
       nodeVersion: process.version
     });
+    startAssignmentTimeoutCron(io);
   });
 } else {
   logger.info('Server initialized in test mode without binding network port');

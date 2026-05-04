@@ -85,12 +85,17 @@ export default function AssignPadalModal({ open, onOpenChange, ticket, onSuccess
                 ) : (
                   padalList.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      <span className="flex items-center gap-2">
-                        {p.name}
+                      <div className="flex w-full items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{p.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                        </div>
                         {p.is_shift_active ? (
-                          <Badge className="bg-green-100 text-green-700 border-green-300 text-xs px-1 py-0">Aktif</Badge>
-                        ) : null}
-                      </span>
+                          <Badge className="bg-green-100 text-green-700 border-green-200">Aktif</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">Off Shift</Badge>
+                        )}
+                      </div>
                     </SelectItem>
                   ))
                 )}

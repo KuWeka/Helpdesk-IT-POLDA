@@ -26,7 +26,6 @@ const isAuthRoute = (url = '') => (
 );
 
 const redirectToLogin = () => {
-  localStorage.removeItem('helpdesk_user');
   if (window.location.pathname !== '/login' && window.location.pathname !== '/signup') {
     window.location.href = '/login';
   }

@@ -12,7 +12,6 @@
  *  - updateTicket         (field whitelist, soft-delete guard)
  *  - deleteTicket
  *  - generateTicketNumber (atomic sequence, same-connection usage)
- *  - getTicketStats       (cache hit / miss)
  */
 
 process.env.NODE_ENV = 'test';
@@ -165,17 +164,14 @@ describe('TicketService', () => {
       expect(mockCacheSet).toHaveBeenCalled();
     });
 
-    test('returns cached list without running the list query (count query still runs)', async () => {
+    test('returns cached list without running any DB query', async () => {
       const cached = { tickets: [makeTicketRow()], pagination: { page: 1, perPage: 10, total: 1, totalPages: 1 } };
-      // Count query always executes before the cache check in this service
-      mockQuery.mockResolvedValueOnce([[{ total: 1 }]]);
       mockCacheGet.mockResolvedValueOnce(cached);
 
       const result = await TicketService.getTickets({}, { page: 1, perPage: 10 });
 
       expect(result).toEqual(cached);
-      // Only count query should run; list query is skipped on cache hit
-      expect(mockQuery).toHaveBeenCalledTimes(1);
+      expect(mockQuery).not.toHaveBeenCalled();
     });
 
     test('clamps perPage to MAX_PER_PAGE (100)', async () => {
@@ -315,28 +311,4 @@ describe('TicketService', () => {
     });
   });
 
-  // ── getTicketStats ───────────────────────────────────────────────────────
-
-  describe('getTicketStats', () => {
-    test('returns cached stats without hitting DB', async () => {
-      const stats = { total: 5, open: 2, in_progress: 1, resolved: 1, closed: 1 };
-      mockCacheGet.mockResolvedValueOnce(stats);
-
-      const result = await TicketService.getTicketStats();
-
-      expect(result).toEqual(stats);
-      expect(mockQuery).not.toHaveBeenCalled();
-    });
-
-    test('queries DB on cache miss and caches result', async () => {
-      const statsRow = { total: 10, open: 3, in_progress: 2, resolved: 4, closed: 1 };
-      // pool.query returns [rows, fields]; service destructures as [rows] then reads [0]
-      mockQuery.mockResolvedValueOnce([[statsRow]]);
-
-      const result = await TicketService.getTicketStats();
-
-      expect(result).toEqual(statsRow);
-      expect(mockCacheSet).toHaveBeenCalledWith('tickets:stats', statsRow, 60);
-    });
-  });
 });

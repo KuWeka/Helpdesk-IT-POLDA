@@ -44,7 +44,6 @@ export default function UserSettingsPage() {
       await api.patch(`/users/${currentUser.id}`, profileData);
       const updatedUser = { ...currentUser, ...profileData };
       setCurrentUser(updatedUser);
-      localStorage.setItem('helpdesk_user', JSON.stringify(updatedUser));
       toast.success('Profil berhasil diperbarui');
     } catch (err) {
       toast.error('Gagal memperbarui profil');
@@ -107,7 +106,6 @@ export default function UserSettingsPage() {
       
       const updatedUser = { ...currentUser, language: prefData.language, theme: prefData.theme };
       setCurrentUser(updatedUser);
-      localStorage.setItem('helpdesk_user', JSON.stringify(updatedUser));
       
       toast.success('Preferensi berhasil disimpan');
       

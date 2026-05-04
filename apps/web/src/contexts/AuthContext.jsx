@@ -38,24 +38,6 @@ export const AuthProvider = ({ children }) => {
         let user = res.data?.data?.user || null;
         let csrfToken = res.data?.data?.csrfToken;
 
-        // If the role stored in the JWT (cached in localStorage) differs from the
-        // fresh DB value, force a token refresh so the new JWT carries the correct role.
-        const storedUser = (() => {
-          try { return JSON.parse(localStorage.getItem('helpdesk_user') || 'null'); } catch { return null; }
-        })();
-        if (user && storedUser && storedUser.role !== user.role) {
-          try {
-            const refreshRes = await api.post('/auth/refresh', {});
-            const newCsrf = refreshRes.data?.data?.csrfToken;
-            if (newCsrf) {
-              csrfToken = newCsrf;
-              localStorage.setItem('helpdesk_csrf_token', newCsrf);
-            }
-          } catch (_) {
-            // refresh failed — proceed with current token, next request will handle it
-          }
-        }
-
         if (!mounted) return;
         const normalizedUser = user ? { ...user, role: normalizeRole(user.role) } : null;
         setCurrentUser(normalizedUser);
@@ -93,6 +75,22 @@ export const AuthProvider = ({ children }) => {
       clearTimeout(fallbackTimer);
     };
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.role !== 'Subtekinfo') {
+      return undefined;
+    }
+
+    const onAssignmentExpired = (data) => {
+      toast.warning(
+        `Assignment ke Padal untuk tiket ${data.ticket_number} expired setelah ${data.expired_after_minutes} menit. Tiket kembali ke Pending.`,
+        { duration: 8000 }
+      );
+    };
+
+    socket.on('ticket:assignment_expired', onAssignmentExpired);
+    return () => socket.off('ticket:assignment_expired', onAssignmentExpired);
+  }, [currentUser?.role]);
 
   const login = async (identifier, password) => {
     try {

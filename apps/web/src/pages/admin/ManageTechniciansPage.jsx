@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import api from '@/lib/api.js';
-import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import {
   Empty,
   EMPTY_STATE_VARIANTS,
@@ -37,7 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
-import { PlusCircle, Edit, Trash2, MoreHorizontal, Calendar, Users, UserPlus, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, MoreHorizontal, Calendar, Users, UserPlus, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import AddEditTechnicianModal from '@/components/modals/AddEditTechnicianModal.jsx';
 import { ROLES } from '@/lib/constants.js';
@@ -61,7 +62,9 @@ const extractUsers = (payload) => {
 
 export default function ManageTechniciansPage() {
   const { t } = useTranslation();
-  const [technicians, setTechnicians] = useState([]);
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.pathname.includes('/teknisi') ? 'Teknisi' : 'Padal');
+  const [users, setUsers] = useState([]);
   const [candidateUsers, setCandidateUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalState, setModalState] = useState({ isOpen: false, tech: null });
@@ -74,11 +77,24 @@ export default function ManageTechniciansPage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
 
-  const fetchTechnicians = async () => {
+  const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data } = await api.get('/technicians');
-      setTechnicians(extractTechnicians(data));
+      if (activeTab === 'Padal') {
+        const { data } = await api.get('/technicians');
+        setUsers(extractTechnicians(data));
+      } else {
+        const { data } = await api.get('/users', {
+          params: {
+            role: 'Teknisi',
+            is_active: true,
+            sort: 'name',
+            order: 'asc',
+            perPage: 100,
+          }
+        });
+        setUsers(extractUsers(data));
+      }
     } catch (err) {
       toast.error(t('manageTechs.loadFailed', 'Failed to load technicians'));
     } finally {
@@ -86,7 +102,7 @@ export default function ManageTechniciansPage() {
     }
   };
 
-  useEffect(() => { fetchTechnicians(); }, []);
+  useEffect(() => { fetchUsers(); }, [activeTab]);
 
   const fetchCandidateUsers = async () => {
     try {
@@ -133,7 +149,7 @@ export default function ManageTechniciansPage() {
         toast.success(t('manageTechs.promoteSuccess', 'User promoted to technician'));
       }
       setModalState({ isOpen: false, tech: null });
-      fetchTechnicians();
+      fetchUsers();
     } catch (error) {
       toast.error(error.response?.message || t('manageTechs.saveFailed', 'Failed to save technician'));
     } finally {
@@ -168,7 +184,7 @@ export default function ManageTechniciansPage() {
       setSelectedTeknisi('');
       const res = await api.get(`/padal-shifts/${detailTarget.id}/members`);
       setMembers(res.data?.data?.members || []);
-      fetchTechnicians();
+      fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal menambahkan anggota');
     } finally {
@@ -181,7 +197,7 @@ export default function ManageTechniciansPage() {
       await api.delete(`/padal-shifts/${detailTarget.id}/members/${teknisiId}`);
       toast.success(`${teknisiName} dihapus dari Padal`);
       setMembers((prev) => prev.filter((m) => m.id !== teknisiId));
-      fetchTechnicians();
+      fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal menghapus anggota');
     }
@@ -191,7 +207,7 @@ export default function ManageTechniciansPage() {
     try {
       await api.delete(`/users/${tech.id}`);
       toast.success(t('manageTechs.deleteSuccess', 'Technician account deleted permanently'));
-      fetchTechnicians();
+      fetchUsers();
     } catch (err) {
       toast.error(t('manageTechs.deleteFailed', 'Failed to delete technician account'));
     }
@@ -202,54 +218,79 @@ export default function ManageTechniciansPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <SectionHeader
-            title={t('admin.manage_techs', 'Kelola Padal')}
-            subtitle={t('admin.total_techs', { count: technicians.length, defaultValue: `Total: ${technicians.length} teknisi` })}
+            title={activeTab === 'Padal' ? t('admin.manage_techs', 'Kelola Padal') : 'Kelola Teknisi'}
+            subtitle={
+              activeTab === 'Padal'
+                ? t('admin.total_techs', { count: users.length, defaultValue: `Total: ${users.length} padal` })
+                : `Total: ${users.length} teknisi`
+            }
           />
         </div>
-        <Button onClick={() => setModalState({ isOpen: true, tech: null })} className="gap-2 shrink-0">
-          <PlusCircle className="h-4 w-4" /> {t('manageTechs.addTechnician', 'Add Technician')}
-        </Button>
+        {activeTab === 'Padal' && (
+          <Button onClick={() => setModalState({ isOpen: true, tech: null })} className="gap-2 shrink-0">
+            <PlusCircle className="h-4 w-4" /> {t('manageTechs.addTechnician', 'Add Technician')}
+          </Button>
+        )}
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="Padal">Padal</TabsTrigger>
+          <TabsTrigger value="Teknisi">Teknisi</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="overflow-x-auto rounded-lg border border-border">
-            <Table className="min-w-full">
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="px-6">{t('manageTechs.nameInfo', 'Name & Info')}</TableHead>
-                  <TableHead>{t('manageTechs.contact', 'Contact')}</TableHead>
-                  <TableHead>{t('common.status', 'Status')}</TableHead>
+        <Table className="min-w-full">
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="px-6">{t('manageTechs.nameInfo', 'Name & Info')}</TableHead>
+              <TableHead>{t('manageTechs.contact', 'Contact')}</TableHead>
+              <TableHead>{t('common.status', 'Status')}</TableHead>
+              {activeTab === 'Padal' ? (
+                <>
                   <TableHead>Status Shift</TableHead>
+                  <TableHead>Rating</TableHead>
+                  <TableHead>Tiket Selesai</TableHead>
                   <TableHead>Jumlah Anggota</TableHead>
-                  <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
+                </>
+              ) : (
+                <TableHead>Role</TableHead>
+              )}
+              <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell className="px-6"><Skeleton className="h-10 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-28" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                  <TableCell className="text-right px-6"><Skeleton className="h-8 w-8 ml-auto rounded-md" /></TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="px-6"><Skeleton className="h-10 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-28" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-10" /></TableCell>
-                      <TableCell className="text-right px-6"><Skeleton className="h-8 w-8 ml-auto rounded-md" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : technicians.length > 0 ? (
-                  technicians.map((tech) => (
-                    <TableRow key={tech.id} className="hover:bg-muted/30">
-                      <TableCell className="px-6 py-3">
-                        <div className="font-medium text-foreground">{tech.name}</div>
-                        <div className="text-sm text-muted-foreground">{tech.email}</div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {tech.phone || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={tech.is_active ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}>
-                          {tech.is_active ? t('manageTechs.active', 'Active') : t('manageTechs.offDuty', 'Off Duty')}
-                        </Badge>
-                      </TableCell>
+              ))
+            ) : users.length > 0 ? (
+              users.map((tech) => (
+                <TableRow key={tech.id} className="hover:bg-muted/30">
+                  <TableCell className="px-6 py-3">
+                    <div className="font-medium text-foreground">{tech.name}</div>
+                    <div className="text-sm text-muted-foreground">{tech.email}</div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {tech.phone || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className={tech.is_active ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}>
+                      {tech.is_active ? t('manageTechs.active', 'Active') : t('manageTechs.offDuty', 'Off Duty')}
+                    </Badge>
+                  </TableCell>
+                  {activeTab === 'Padal' ? (
+                    <>
                       <TableCell>
                         {tech.is_shift_active ? (
                           <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1 text-xs">
@@ -264,70 +305,96 @@ export default function ManageTechniciansPage() {
                           <span className="text-xs text-muted-foreground">Belum diatur</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {tech.avg_rating ? (
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                            <span className="font-medium">{tech.avg_rating}</span>
+                            <span className="text-xs text-muted-foreground">({tech.total_ratings || 0})</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Belum ada</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span>{tech.total_tickets_selesai || 0}</span>
+                      </TableCell>
                       <TableCell className="text-sm">
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                           <Users className="h-3.5 w-3.5" />
                           {tech.member_count ?? 0}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right px-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">{t('common.openMenu', 'Open menu')}</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openDetail(tech)}>
-                              <Users className="mr-2 h-4 w-4" />
-                              Detail Anggota
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setModalState({ isOpen: true, tech })}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setActionTarget({ type: 'delete', tech })}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Hapus Permanen
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-56">
-                      <Empty
-                        className="border-0 shadow-none"
-                        variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
-                        title={t('manageTechs.emptyTitle', 'No technician data')}
-                        description={t('manageTechs.emptyDesc', 'No registered technicians to display yet.')}
-                      />
+                    </>
+                  ) : (
+                    <TableCell>
+                      <Badge variant="outline">{tech.role || 'Teknisi'}</Badge>
                     </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  )}
+                  <TableCell className="text-right px-6">
+                    {activeTab === 'Padal' ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">{t('common.openMenu', 'Open menu')}</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openDetail(tech)}>
+                            <Users className="mr-2 h-4 w-4" />
+                            Detail Anggota
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setModalState({ isOpen: true, tech })}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setActionTarget({ type: 'delete', tech })}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus Permanen
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={activeTab === 'Padal' ? 8 : 5} className="h-56">
+                  <Empty
+                    className="border-0 shadow-none"
+                    variant={EMPTY_STATE_VARIANTS.NO_RESULTS}
+                    title={t('manageTechs.emptyTitle', 'No technician data')}
+                    description={t('manageTechs.emptyDesc', 'No registered technicians to display yet.')}
+                  />
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      <AddEditTechnicianModal 
-        isOpen={modalState.isOpen} 
-        onClose={() => setModalState({ isOpen: false, tech: null })} 
-        technician={modalState.tech} 
-        onSave={handleSave}
-        isLoading={isSaving}
-        candidateUsers={candidateUsers}
-      />
+      {activeTab === 'Padal' && (
+        <AddEditTechnicianModal 
+          isOpen={modalState.isOpen} 
+          onClose={() => setModalState({ isOpen: false, tech: null })} 
+          technician={modalState.tech} 
+          onSave={handleSave}
+          isLoading={isSaving}
+          candidateUsers={candidateUsers}
+        />
+      )}
 
       {/* Detail Anggota Dialog */}
-      <Dialog open={!!detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)}>
+      <Dialog open={activeTab === 'Padal' && !!detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -406,7 +473,7 @@ export default function ManageTechniciansPage() {
       </Dialog>
 
       <AlertDialog
-        open={!!actionTarget.type}
+        open={activeTab === 'Padal' && !!actionTarget.type}
         onOpenChange={(open) => {
           if (!open) setActionTarget({ type: null, tech: null });
         }}

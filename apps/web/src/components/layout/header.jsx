@@ -107,7 +107,6 @@ export function Header() {
 
     if (currentUser) {
       const updatedUser = { ...currentUser, theme: newTheme };
-      localStorage.setItem('helpdesk_user', JSON.stringify(updatedUser));
       setCurrentUser(updatedUser);
     }
   };

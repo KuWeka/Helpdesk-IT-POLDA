@@ -135,8 +135,13 @@ export default function TicketDetailPage() {
     );
   }
 
-  const isPadalAssigned = !!ticket.padal_id;
-  const canEditOrCancel = currentUser?.role === 'Satker' && ticket.user_id === currentUser?.id && ticket.status === 'Pending';
+  const canEdit = currentUser?.role === 'Satker' && ticket.user_id === currentUser?.id && ticket.status === 'Pending';
+  const canCancel = (() => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'Satker') return ticket.user_id === currentUser.id && ticket.status === 'Pending';
+    if (currentUser.role === 'Subtekinfo') return ['Pending', 'Proses'].includes(ticket.status);
+    return false;
+  })();
 
   const handleCancelTicket = async () => {
     try {
@@ -176,8 +181,9 @@ export default function TicketDetailPage() {
             <Phone className="h-4 w-4" />
             Hubungi via WhatsApp
           </Button>
-          {canEditOrCancel && (
+          {(canEdit || canCancel) && (
             <>
+              {canEdit && (
               <Button
                 variant="outline"
                 className="shrink-0"
@@ -185,6 +191,8 @@ export default function TicketDetailPage() {
               >
                 Edit Permohonan
               </Button>
+              )}
+              {canCancel && (
               <Button
                 variant="destructive"
                 className="shrink-0"
@@ -192,6 +200,7 @@ export default function TicketDetailPage() {
               >
                 Batalkan Permohonan
               </Button>
+              )}
             </>
           )}
           {ticket.status === 'Selesai' && !hasRated && (currentUser?.role === 'Satker' || currentUser?.role === 'Teknisi') && (

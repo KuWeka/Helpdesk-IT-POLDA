@@ -47,7 +47,7 @@ const swaggerDefinition = {
           email: { type: 'string', format: 'email', example: 'john@example.com' },
           username: { type: 'string', example: 'johndoe' },
           phone: { type: 'string', example: '+628123456789' },
-          role: { type: 'string', enum: ['Admin', 'Teknisi', 'User'], example: 'User' },
+          role: { type: 'string', enum: ['Subtekinfo', 'Padal', 'Teknisi', 'Satker'], example: 'Satker' },
           is_active: { type: 'boolean', example: true },
           division_id: { type: 'string', format: 'uuid' },
           language: { type: 'string', enum: ['ID', 'EN'], example: 'ID' },
@@ -63,7 +63,7 @@ const swaggerDefinition = {
           ticket_number: { type: 'string', example: 'TKT-202604-0001' },
           title: { type: 'string', example: 'Laptop tidak bisa booting' },
           description: { type: 'string', example: 'Laptop tiba-tiba mati dan tidak bisa dinyalakan' },
-          status: { type: 'string', enum: ['Open', 'In Progress', 'Resolved', 'Closed'], example: 'Open' },
+          status: { type: 'string', enum: ['Pending', 'Proses', 'Selesai', 'Ditolak', 'Dibatalkan'], example: 'Pending' },
           category: { type: 'string', example: 'Hardware' },
           user_id: { type: 'string', format: 'uuid' },
           assigned_technician_id: { type: 'string', format: 'uuid' },
@@ -82,7 +82,7 @@ const swaggerDefinition = {
           technician_id: { type: 'string', format: 'uuid' },
           title: { type: 'string', example: 'Diskusi masalah laptop' },
           description: { type: 'string' },
-          status: { type: 'string', enum: ['Active', 'Closed'], example: 'Active' },
+          status: { type: 'string', enum: ['Active', 'Inactive'], example: 'Active' },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' }
         }

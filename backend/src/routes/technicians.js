@@ -17,9 +17,14 @@ const { ApiResponse } = require('../utils/apiResponse');
 router.get('/', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(`
     SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at,
-           COUNT(pm.id) AS member_count
+      COUNT(DISTINCT pm.id) AS member_count,
+      COUNT(DISTINCT t.id) AS total_tickets_selesai,
+      ROUND(AVG(tr.rating), 1) AS avg_rating,
+      COUNT(DISTINCT tr.id) AS total_ratings
     FROM users u
     LEFT JOIN padal_members pm ON pm.padal_id = u.id
+    LEFT JOIN tickets t ON t.padal_id = u.id AND t.status = 'Selesai' AND t.deleted_at IS NULL
+    LEFT JOIN ticket_ratings tr ON tr.padal_id = u.id
     WHERE u.role = 'Padal'
     GROUP BY u.id
     ORDER BY u.name ASC

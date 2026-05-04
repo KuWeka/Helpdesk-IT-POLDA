@@ -119,7 +119,7 @@ const sampleTicket = {
   title: 'Printer mati',
   description: 'Printer di lantai 2 tidak menyala',
   category: 'Hardware',
-  status: 'Open',
+  status: 'Pending',
   user_id: 'user-satker-1',
 };
 

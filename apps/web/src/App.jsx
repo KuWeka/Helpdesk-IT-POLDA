@@ -41,7 +41,6 @@ import AdminTicketDetailPage from '@/pages/admin/AdminTicketDetailPage.jsx';
 import TicketHistoryPage from '@/pages/admin/TicketHistoryPage.jsx';
 import ManageUsersPage from '@/pages/admin/ManageUsersPage.jsx';
 import ManageTechniciansPage from '@/pages/admin/ManageTechniciansPage.jsx';
-import ManageFieldTechniciansPage from '@/pages/admin/ManageFieldTechniciansPage.jsx';
 import ManageShiftPage from '@/pages/admin/ManageShiftPage.jsx';
 import ActivityLogsPage from '@/pages/admin/ActivityLogsPage.jsx';
 import SystemSettingsPage from '@/pages/admin/SystemSettingsPage.jsx';
@@ -129,7 +128,7 @@ function AppRoutes() {
         <Route path="tickets" element={<AllTicketsPage />} />
         <Route path="tickets/:id" element={<AdminTicketDetailPage />} />
         <Route path="padal" element={<ManageTechniciansPage />} />
-        <Route path="teknisi" element={<ManageFieldTechniciansPage />} />
+        <Route path="teknisi" element={<ManageTechniciansPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="ticket-history" element={<TicketHistoryPage />} />
         <Route path="users" element={<ManageUsersPage />} />
@@ -175,19 +174,8 @@ function App() {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('app_theme');
-    const savedUser = localStorage.getItem('helpdesk_user');
-
-    let userTheme = null;
-    if (savedUser) {
-      try {
-        userTheme = JSON.parse(savedUser)?.theme;
-      } catch (_) {
-        userTheme = null;
-      }
-    }
-
-    const effectiveTheme = savedTheme || userTheme || 'dark';
-    if (!savedTheme && !userTheme) {
+    const effectiveTheme = savedTheme || 'dark';
+    if (!savedTheme) {
       localStorage.setItem('app_theme', effectiveTheme);
     }
     document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');

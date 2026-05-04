@@ -354,6 +354,22 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
     }
   }
 
+  // Matrix pembatalan tiket:
+  // Satker: hanya status Pending
+  // Padal: tidak boleh membatalkan
+  // Subtekinfo: boleh Pending/Proses, tidak boleh Selesai
+  if (status === 'Dibatalkan') {
+    if (actualRole === 'Satker' && existingTicket.status !== 'Pending') {
+      return res.status(403).json({ message: 'Satker hanya dapat membatalkan tiket yang masih berstatus Pending' });
+    }
+    if (actualRole === 'Padal') {
+      return res.status(403).json({ message: 'Padal tidak diizinkan membatalkan tiket' });
+    }
+    if (actualRole === 'Subtekinfo' && existingTicket.status === 'Selesai') {
+      return res.status(403).json({ message: 'Tiket yang sudah Selesai tidak dapat dibatalkan' });
+    }
+  }
+
   // Validate assigned_technician_id — must be an active Teknisi user
   if (assigned_technician_id !== undefined && assigned_technician_id !== null) {
     const [[tech]] = await pool.query(
@@ -404,7 +420,7 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
     status,
     assigned_technician_id,
     updated_by: req.user.id,
-    updated_by_role: req.user.role
+    updated_by_role: actualRole
   });
 
   // Jika status berubah ke Selesai, emit ticket:rating_required ke Satker

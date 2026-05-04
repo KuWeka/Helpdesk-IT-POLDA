@@ -27,6 +27,18 @@ class TicketService {
     const MAX_PER_PAGE = 100;
     const safePerPage = Math.min(Math.max(parseInt(perPage) || 20, 1), MAX_PER_PAGE);
     const safePage = Math.max(parseInt(page) || 1, 1);
+
+    const listCacheKey = this.buildKey('tickets:list', {
+      page: safePage,
+      perPage: safePerPage,
+      ...filters,
+    });
+
+    const cached = await cache.get(listCacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const offset = (safePage - 1) * safePerPage;
 
     let query = `
@@ -89,17 +101,6 @@ class TicketService {
     query += ` ORDER BY t.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
     params.push(safePerPage, offset);
 
-    const listCacheKey = this.buildKey('tickets:list', {
-      page: safePage,
-      perPage: safePerPage,
-      ...filters,
-    });
-
-    const cached = await cache.get(listCacheKey);
-    if (cached) {
-      return cached;
-    }
-
     const [rows] = await pool.query(query, params);
 
     const payload = {
@@ -144,10 +145,13 @@ class TicketService {
       ticket_number: ticketNumber,
       title: ticketData.title,
       description: ticketData.description,
+      location: ticketData.location || '',
       category: ticketData.category,
-      status: 'Open',
+      status: 'Pending',
       user_id: ticketData.user_id,
+      padal_id: null,
       assigned_technician_id: null,
+      rejection_reason: null,
       solution: null,
       closed_at: null,
       created_at: new Date(),
@@ -155,15 +159,15 @@ class TicketService {
     };
 
     await pool.query(`
-      INSERT INTO tickets (id, ticket_number, title, description, category,
-                          status, user_id, assigned_technician_id, solution, closed_at,
-                          created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tickets (id, ticket_number, title, description, location, category,
+                          status, user_id, padal_id, assigned_technician_id, rejection_reason,
+                          solution, closed_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       ticket.id, ticket.ticket_number, ticket.title, ticket.description,
-      ticket.category, ticket.status, ticket.user_id,
-      ticket.assigned_technician_id, ticket.solution, ticket.closed_at,
-      ticket.created_at, ticket.updated_at
+      ticket.location, ticket.category, ticket.status, ticket.user_id,
+      ticket.padal_id, ticket.assigned_technician_id, ticket.rejection_reason,
+      ticket.solution, ticket.closed_at, ticket.created_at, ticket.updated_at
     ]);
 
     await this.invalidateTicketCaches(id);
@@ -252,31 +256,6 @@ class TicketService {
     }
   }
 
-  /**
-   * Get ticket statistics
-   */
-  static async getTicketStats() {
-    const cacheKey = 'tickets:stats';
-    const cachedStats = await cache.get(cacheKey);
-    if (cachedStats) {
-      return cachedStats;
-    }
-
-    const [stats] = await pool.query(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) as open,
-        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-        SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) as closed
-      FROM tickets
-      WHERE deleted_at IS NULL
-    `);
-
-    await cache.set(cacheKey, stats[0], 60);
-
-    return stats[0];
-  }
 }
 
 module.exports = TicketService;

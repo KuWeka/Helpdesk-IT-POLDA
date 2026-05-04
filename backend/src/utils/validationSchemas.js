@@ -19,10 +19,8 @@ const patterns = {
   phone: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).allow('').optional(),
   name: Joi.string().min(2).max(100).trim(),
   description: Joi.string().max(1000).allow('').optional(),
-  // Keep both legacy and current domain values for backward compatibility.
   status: Joi.string().valid(
-    'Pending', 'Proses', 'Selesai', 'Dibatalkan', 'Ditolak',
-    'Open', 'In Progress', 'Resolved', 'Closed'
+    'Pending', 'Proses', 'Selesai', 'Dibatalkan', 'Ditolak'
   ),
   role: Joi.string().valid('Subtekinfo', 'Padal', 'Teknisi', 'Satker'),
   theme: Joi.string().valid('light', 'dark'),
@@ -116,6 +114,9 @@ const ticketSchemas = {
     category: Joi.string().min(2).max(50).trim(),
     status: patterns.status,
     assigned_technician_id: patterns.uuid.allow(null),
+    padal_id: patterns.uuid.allow(null),
+    rejection_reason: Joi.string().max(1000).allow(null, ''),
+    location: Joi.string().max(255).allow('').optional(),
     solution: Joi.string().max(2000).allow('').optional(),
     closed_at: Joi.date().allow(null)
   }).min(1),
@@ -147,7 +148,7 @@ const chatSchemas = {
   update: Joi.object({
     title: Joi.string().min(5).max(200).trim(),
     description: patterns.description,
-    status: Joi.string().valid('Active', 'Closed')
+    status: Joi.string().valid('Active', 'Inactive')
   }).min(1),
 
   list: Joi.object({
@@ -156,7 +157,7 @@ const chatSchemas = {
     user_id: patterns.uuid,
     technician_id: patterns.uuid,
     ticket_id: patterns.uuid,
-    status: Joi.string().valid('Active', 'Closed'),
+    status: Joi.string().valid('Active', 'Inactive'),
     search: Joi.string().min(1).max(100).trim()
   })
 };
