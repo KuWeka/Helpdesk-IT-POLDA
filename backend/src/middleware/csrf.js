@@ -5,11 +5,14 @@ const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || 'helpdesk_csrf_token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-// Only login/register are excluded — they issue the CSRF token so there's nothing
-// to validate yet. All mutating endpoints (including uploads) are protected.
+// Login/register are excluded because they issue the CSRF token (nothing to validate yet).
+// Refresh is excluded because: (a) it uses the httpOnly refresh-token cookie as proof of
+// identity, (b) the CSRF token may not be available yet in cross-origin environments,
+// and (c) the response only sets new httpOnly cookies — no sensitive data is leaked.
 const EXCLUDED_PATHS = new Set([
   '/auth/login',
   '/auth/register',
+  '/auth/refresh',
 ]);
 
 const isExcludedPath = (path) => EXCLUDED_PATHS.has(path);

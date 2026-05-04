@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '@/lib/api.js';
+import api, { setAccessToken } from '@/lib/api.js';
 import socket from '@/lib/socket.js';
 import { toast } from 'sonner';
 
@@ -37,6 +37,7 @@ export const AuthProvider = ({ children }) => {
         const res = await api.get('/auth/me', { timeout: 6000 });
         let user = res.data?.data?.user || null;
         let csrfToken = res.data?.data?.csrfToken;
+        const accessToken = res.data?.data?.accessToken;
 
         if (!mounted) return;
         const normalizedUser = user ? { ...user, role: normalizeRole(user.role) } : null;
@@ -47,6 +48,10 @@ export const AuthProvider = ({ children }) => {
           // (it protects against cross-site forgery, not identity theft).
           if (csrfToken) {
             localStorage.setItem('helpdesk_csrf_token', csrfToken);
+          }
+          // Store access token in memory for cross-origin Bearer auth
+          if (accessToken) {
+            setAccessToken(accessToken);
           }
           // Connect socket dan join room sesuai role
           if (!socket.connected) socket.connect();
@@ -97,6 +102,7 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/login', { identifier, password });
       const user = res.data?.data?.user;
       const csrfToken = res.data?.data?.csrfToken;
+      const accessToken = res.data?.data?.accessToken;
 
       if (!user) {
         throw new Error('Data user tidak ditemukan');
@@ -107,6 +113,10 @@ export const AuthProvider = ({ children }) => {
       // Store only the non-secret CSRF token; user identity lives in React state only
       if (csrfToken) {
         localStorage.setItem('helpdesk_csrf_token', csrfToken);
+      }
+      // Store access token in memory for cross-origin Bearer auth
+      if (accessToken) {
+        setAccessToken(accessToken);
       }
 
       setCurrentUser(normalizedUser);
@@ -161,6 +171,7 @@ export const AuthProvider = ({ children }) => {
 
     socket.disconnect();
     localStorage.removeItem('helpdesk_csrf_token');
+    setAccessToken(null);
     setCurrentUser(null);
     navigate('/login');
     toast.info('Anda telah logout');

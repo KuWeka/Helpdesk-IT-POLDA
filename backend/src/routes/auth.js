@@ -168,7 +168,8 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
 
   res.json(ApiResponse.success({
     user,
-    csrfToken
+    csrfToken,
+    accessToken,
   }, 'Login berhasil'));
 }));
 
@@ -253,7 +254,8 @@ router.post('/refresh', asyncHandler(async (req, res) => {
     const csrfToken = issueAuthCookies(res, newAccessToken, rotatedRefreshToken);
 
     res.json(ApiResponse.success({
-      csrfToken
+      csrfToken,
+      accessToken: newAccessToken,
     }, 'Token berhasil diperbarui'));
   } catch (error) {
     clearAuthCookies(res);

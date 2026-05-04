@@ -36,10 +36,13 @@ try {
 
 const auth = async (req, res, next) => {
   try {
-    // Read token exclusively from httpOnly cookie — the Authorization Bearer header
-    // path is removed to prevent token theft via XSS (JS cannot read httpOnly cookies).
+    // Prefer httpOnly cookie (most secure). Fall back to Authorization: Bearer header
+    // to support cross-origin deployments where third-party cookies are blocked.
     const cookies = parseCookies(req);
-    const token = cookies[process.env.ACCESS_TOKEN_COOKIE_NAME || 'helpdesk_access_token'];
+    const cookieToken = cookies[process.env.ACCESS_TOKEN_COOKIE_NAME || 'helpdesk_access_token'];
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = cookieToken || bearerToken;
 
     if (!token) {
       return res.status(401).json({ 

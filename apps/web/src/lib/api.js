@@ -2,6 +2,13 @@ import axios from 'axios';
 
 const resolvedApiUrl = (import.meta.env.VITE_API_URL || '').trim();
 
+// In-memory access token — avoids cross-origin cookie blocking (third-party cookie issue).
+// Never stored in localStorage/sessionStorage to prevent XSS leakage.
+let _accessToken = null;
+
+export const setAccessToken = (token) => { _accessToken = token; };
+export const getAccessToken = () => _accessToken;
+
 const emitApiStatus = (offline, reason = null) => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('api:status', {
@@ -44,6 +51,13 @@ const getCookie = (name) => {
 
 api.interceptors.request.use((config) => {
   const method = (config.method || 'get').toLowerCase();
+
+  // Send access token as Bearer header to support cross-origin deployments
+  // where httpOnly cookies may be blocked by third-party cookie restrictions.
+  if (_accessToken) {
+    config.headers['Authorization'] = `Bearer ${_accessToken}`;
+  }
+
   const requiresCsrf = ['post', 'put', 'patch', 'delete'].includes(method);
 
   if (requiresCsrf) {
@@ -82,8 +96,12 @@ api.interceptors.response.use((response) => {
       return api.post('/auth/refresh', {})
         .then((refreshRes) => {
           const newCsrfToken = refreshRes.data?.data?.csrfToken;
+          const newAccessToken = refreshRes.data?.data?.accessToken;
           if (newCsrfToken) {
             localStorage.setItem('helpdesk_csrf_token', newCsrfToken);
+          }
+          if (newAccessToken) {
+            setAccessToken(newAccessToken);
           }
           emitApiStatus(false, null);
           return api(originalRequest);
