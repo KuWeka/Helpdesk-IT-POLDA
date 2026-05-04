@@ -17,11 +17,13 @@ const apiVersioning = (req, res, next) => {
   }
 
   // Check URL path: /api/v2/endpoint
-  const urlVersionMatch = req.path.match(/^\/api\/v(\d+)\//);
+  // Note: this middleware is mounted at /api, so req.path is already relative:
+  //   /api/v1/auth/login → req.path = /v1/auth/login
+  const urlVersionMatch = req.path.match(/^\/v(\d+)\//);  // Fixed: was /^\/api\/v...
   if (urlVersionMatch) {
     version = `v${urlVersionMatch[1]}`;
-    // Remove version from path for route matching
-    req.url = req.url.replace(/^\/api\/v\d+/, '/api');
+    // Strip version segment so downstream routes see /auth/login instead of /v1/auth/login
+    req.url = req.url.replace(/^\/v\d+/, '');
   }
 
   req.apiVersion = version;

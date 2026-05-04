@@ -10,15 +10,16 @@ async function warmAdminDashboardSummary() {
       SUM(CASE WHEN status = 'Proses' THEN 1 ELSE 0 END) as proses,
       SUM(CASE WHEN status = 'Selesai' THEN 1 ELSE 0 END) as selesai
     FROM tickets
+    WHERE deleted_at IS NULL
   `);
 
   const [activeTechRows] = await pool.query(`
     SELECT count(*) as count
     FROM users
-    WHERE role = 'Teknisi' AND is_active = 1
+    WHERE role = 'Teknisi' AND is_active = 1 AND deleted_at IS NULL
   `);
 
-  const [totalUserRows] = await pool.query('SELECT count(*) as count FROM users');
+  const [totalUserRows] = await pool.query('SELECT count(*) as count FROM users WHERE deleted_at IS NULL');
 
   const payload = {
     success: true,

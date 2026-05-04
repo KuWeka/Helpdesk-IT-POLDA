@@ -24,7 +24,10 @@ class UserService {
    */
   static async getUsers(filters = {}, pagination = {}) {
     const { page = 1, perPage = 20 } = pagination;
-    const offset = (page - 1) * perPage;
+    const MAX_PER_PAGE = 100;
+    const safePerPage = Math.min(Math.max(parseInt(perPage) || 20, 1), MAX_PER_PAGE);
+    const safePage = Math.max(parseInt(page) || 1, 1);
+    const offset = (safePage - 1) * safePerPage;
 
     let query = `
       SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.is_active,
@@ -38,7 +41,7 @@ class UserService {
              ps.notes AS shift_notes
       FROM users u
       LEFT JOIN padal_shifts ps ON ps.padal_id = u.id
-      WHERE u.is_active = 1
+      WHERE u.is_active = 1 AND u.deleted_at IS NULL
     `;
     const params = [];
 
@@ -66,20 +69,24 @@ class UserService {
 
     // Apply sorting and pagination
     // Untuk role Padal: prioritaskan yang sedang aktif shift di atas
+    // Whitelist sort fields and order to prevent SQL injection via string interpolation
+    const ALLOWED_SORT_FIELDS_USER = ['name', 'email', 'created_at', 'updated_at', 'role'];
+    const ALLOWED_SORT_ORDERS_USER = ['ASC', 'DESC'];
+
     if (filters.role === 'Padal') {
-      const sortField = filters.sort || 'name';
-      const sortOrder = filters.order || 'ASC';
+      const sortField = ALLOWED_SORT_FIELDS_USER.includes(filters.sort) ? filters.sort : 'name';
+      const sortOrder = ALLOWED_SORT_ORDERS_USER.includes(filters.order?.toUpperCase()) ? filters.order.toUpperCase() : 'ASC';
       query += ` ORDER BY is_shift_active DESC, u.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
     } else {
-      const sortField = filters.sort || 'created_at';
-      const sortOrder = filters.order || 'DESC';
+      const sortField = ALLOWED_SORT_FIELDS_USER.includes(filters.sort) ? filters.sort : 'created_at';
+      const sortOrder = ALLOWED_SORT_ORDERS_USER.includes(filters.order?.toUpperCase()) ? filters.order.toUpperCase() : 'DESC';
       query += ` ORDER BY u.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
     }
-    params.push(perPage, offset);
+    params.push(safePerPage, offset);
 
     const listCacheKey = this.buildKey('users:list', {
-      page,
-      perPage,
+      page: safePage,
+      perPage: safePerPage,
       ...filters,
     });
 
@@ -92,10 +99,10 @@ class UserService {
 
     const payload = {
       users: rows,
-      pagination: { page, perPage, total, totalPages: Math.ceil(total / perPage) }
+      pagination: { page: safePage, perPage: safePerPage, total, totalPages: Math.ceil(total / safePerPage) }
     };
 
-    await cache.set(listCacheKey, payload, 60);
+    await cache.set(listCacheKey, payload, 120);
 
     return payload;
   }
@@ -111,7 +118,7 @@ class UserService {
       SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.is_active,
              u.language, u.theme, u.created_at, u.updated_at
       FROM users u
-      WHERE u.id = ?
+      WHERE u.id = ? AND u.deleted_at IS NULL
     `, [id]);
     user = rows[0] || null;
     if (user) await cache.set(cacheKey, user, 3600); // cache for 1 hour
@@ -125,10 +132,12 @@ class UserService {
     const id = uuidv4();
 
     // Hash password if provided
+    // Use BCRYPT_ROUNDS env var so rounds can be tuned without code changes.
+    // Default 10 is the industry standard balance between security and performance.
+    const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
     let passwordHash = null;
     if (userData.password) {
-      const salt = await bcrypt.genSalt(12);
-      passwordHash = await bcrypt.hash(userData.password, salt);
+      passwordHash = await bcrypt.hash(userData.password, BCRYPT_ROUNDS);
     }
 
     const user = {
@@ -197,7 +206,8 @@ class UserService {
       }
 
       // Hash new password
-      const passwordHash = await bcrypt.hash(updateData.password, 10);
+      const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+      const passwordHash = await bcrypt.hash(updateData.password, BCRYPT_ROUNDS);
       updateData.password_hash = passwordHash;
     }
 
@@ -209,7 +219,16 @@ class UserService {
     const fields = [];
     const params = [];
 
+    // Whitelist allowed column names to prevent SQL injection via dynamic key names
+    const ALLOWED_UPDATE_FIELDS = [
+      'name', 'email', 'username', 'phone', 'role',
+      'password_hash', 'language', 'theme', 'is_active'
+    ];
+
     Object.keys(updateData).forEach(key => {
+      if (!ALLOWED_UPDATE_FIELDS.includes(key)) {
+        throw new Error(`Field '${key}' tidak diizinkan untuk diupdate`);
+      }
       if (updateData[key] !== undefined) {
         fields.push(`${key} = ?`);
         params.push(updateData[key]);
@@ -229,6 +248,14 @@ class UserService {
       params
     );
 
+    // When role changes, all user list caches may contain stale role data.
+    // invalidateUserCaches already calls delByPattern('users:list:*'), but we
+    // also explicitly clear dashboard and stats caches that include role-based counts.
+    if (updateData.role !== undefined) {
+      await cache.del('tickets:stats');
+      await cache.delByPattern('dashboard:*');
+    }
+
     await this.invalidateUserCaches(id);
 
     return this.getUserById(id);
@@ -239,8 +266,8 @@ class UserService {
    */
   static async deleteUser(id) {
     await pool.query(
-      'UPDATE users SET is_active = false, updated_at = ? WHERE id = ?',
-      [new Date(), id]
+      'UPDATE users SET is_active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = ?',
+      [id]
     );
     await this.invalidateUserCaches(id);
   }
@@ -249,7 +276,7 @@ class UserService {
    * Check if email exists
    */
   static async emailExists(email, excludeId = null) {
-    let query = 'SELECT id FROM users WHERE email = ?';
+    let query = 'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL';
     const params = [email];
 
     if (excludeId) {
@@ -267,7 +294,7 @@ class UserService {
   static async usernameExists(username, excludeId = null) {
     if (!username) return false;
 
-    let query = 'SELECT id FROM users WHERE username = ?';
+    let query = 'SELECT id FROM users WHERE username = ? AND deleted_at IS NULL';
     const params = [username];
 
     if (excludeId) {

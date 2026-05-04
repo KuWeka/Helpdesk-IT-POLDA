@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit');
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
@@ -8,16 +9,41 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { validateQuery } = require('../middleware/validation');
 const { ticketSchemas } = require('../utils/validationSchemas');
 const { ApiResponse } = require('../utils/apiResponse');
+
+// Rate limiter: max 10 ticket submissions per user per hour
+const ticketCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?.id || rateLimit.ipKeyGenerator(req.ip),
+  message: 'Terlalu banyak tiket dibuat. Silakan coba lagi dalam 1 jam.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter: max 60 list requests per user per minute (prevent scraping / DoS)
+const ticketListLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.user?.id || rateLimit.ipKeyGenerator(req.ip),
+  message: 'Terlalu banyak permintaan daftar tiket. Silakan coba lagi nanti.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const TicketService = require('../services/TicketService');
 const { invalidateAllDashboardCaches } = require('../utils/dashboardCache');
 
 // Get all tickets
-router.get('/', auth, validateQuery(ticketSchemas.list), asyncHandler(async (req, res) => {
+router.get('/', auth, ticketListLimiter, validateQuery(ticketSchemas.list), asyncHandler(async (req, res) => {
   const { status, user_id, assigned_technician_id, unassigned, from, to, search, page, perPage, sort, order } = req.query;
 
   // Lookup real role from DB (JWT may be stale after role change)
-  const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [req.user.id]);
-  const actualRole = dbUser?.role || req.user.role;
+  // Reject entirely if user is not found or inactive — never fall back to JWT role
+  const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1', [req.user.id]);
+  if (!dbUser) {
+    return res.status(401).json({ success: false, message: 'Akses ditolak. Akun tidak aktif atau tidak ditemukan.' });
+  }
+  const actualRole = dbUser.role;
 
   // Role-based filtering
   let effectiveUserId = user_id;
@@ -58,20 +84,24 @@ router.get('/summary', auth, asyncHandler(async (req, res) => {
 
   // Role-based access control for summary scope
   if (req.user.role === 'Satker') {
-    whereClause = 'WHERE user_id = ?';
+    whereClause = 'WHERE deleted_at IS NULL AND user_id = ?';
     params = [req.user.id];
   } else if (req.user.role === 'Padal') {
-    whereClause = 'WHERE padal_id = ?';
+    whereClause = 'WHERE deleted_at IS NULL AND padal_id = ?';
     params = [req.user.id];
   } else if (req.user.role === 'Subtekinfo') {
     // Subtekinfo dapat request summary dengan scope opsional
     if (role === 'satker' && userId) {
-      whereClause = 'WHERE user_id = ?';
+      whereClause = 'WHERE deleted_at IS NULL AND user_id = ?';
       params = [userId];
     } else if (role === 'padal' && userId) {
-      whereClause = 'WHERE padal_id = ?';
+      whereClause = 'WHERE deleted_at IS NULL AND padal_id = ?';
       params = [userId];
+    } else {
+      whereClause = 'WHERE deleted_at IS NULL';
     }
+  } else {
+    whereClause = 'WHERE deleted_at IS NULL';
   }
 
   const [statusRows] = await pool.query(
@@ -84,7 +114,7 @@ router.get('/summary', auth, asyncHandler(async (req, res) => {
 
   const unresolvedWhere = whereClause
     ? `${whereClause} AND status IN ('Pending', 'Proses')`
-    : "WHERE status IN ('Pending', 'Proses')";
+    : "WHERE deleted_at IS NULL AND status IN ('Pending', 'Proses')";
 
   const [agingRows] = await pool.query(
     `SELECT COUNT(*) as count
@@ -106,7 +136,7 @@ router.get('/summary', auth, asyncHandler(async (req, res) => {
   const [trendRows] = await pool.query(
     `SELECT DATE(created_at) as day, COUNT(*) as count
      FROM tickets
-     ${whereClause ? `${whereClause} AND` : 'WHERE'} created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    ${whereClause ? `${whereClause} AND` : 'WHERE deleted_at IS NULL AND'} created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
      GROUP BY DATE(created_at)
      ORDER BY day ASC`,
     params
@@ -143,7 +173,7 @@ router.get('/pending-rating', auth, role('Satker'), asyncHandler(async (req, res
     `SELECT t.id, t.ticket_number, t.title, t.updated_at
      FROM tickets t
      LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-     WHERE t.user_id = ? AND t.status = 'Selesai' AND tr.id IS NULL
+    WHERE t.user_id = ? AND t.status = 'Selesai' AND t.deleted_at IS NULL AND tr.id IS NULL
      ORDER BY t.updated_at DESC
      LIMIT 1`,
     [req.user.id]
@@ -167,7 +197,7 @@ router.get('/:id', auth, asyncHandler(async (req, res) => {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
       LEFT JOIN users padal ON t.padal_id = padal.id
-      WHERE t.id = ?
+      WHERE t.id = ? AND t.deleted_at IS NULL
     `, [req.params.id]);
 
   if (rows.length === 0) return res.status(404).json({ message: 'Ticket not found' });
@@ -175,8 +205,12 @@ router.get('/:id', auth, asyncHandler(async (req, res) => {
   const ticket = rows[0];
 
   // Lookup real role from DB (JWT may be stale after role change)
-  const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [req.user.id]);
-  const actualRole = dbUser?.role || req.user.role;
+  // Reject entirely if user is not found or inactive — never fall back to JWT role
+  const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1', [req.user.id]);
+  if (!dbUser) {
+    return res.status(401).json({ success: false, message: 'Akses ditolak. Akun tidak aktif atau tidak ditemukan.' });
+  }
+  const actualRole = dbUser.role;
 
   if (actualRole === 'Satker' && ticket.user_id !== req.user.id) {
     return res.status(403).json({ message: 'Forbidden' });
@@ -200,57 +234,50 @@ router.get('/:id', auth, asyncHandler(async (req, res) => {
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validation');
 
-// Helper function to generate unique ticket number
-function generateTicketNumber() {
-  // Format: TKT-YYYYMMDDHHMM-RANDOM
-  // Example: TKT-202604221430-A7K9
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  
-  // Random 4-character alphanumeric suffix
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let randomSuffix = '';
-  for (let i = 0; i < 4; i++) {
-    randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  
-  return `TKT-${year}${month}${day}${hours}${minutes}-${randomSuffix}`;
-}
-
-router.post('/', auth, role('Satker'), validate(ticketSchemas.create), asyncHandler(async (req, res) => {
+router.post('/', auth, role('Satker'), ticketCreateLimiter, validate(ticketSchemas.create), asyncHandler(async (req, res) => {
   const { title, description, location, category } = req.body;
 
-  // Cek apakah ada tiket Selesai yang belum dirating
-  const [[unrated]] = await pool.query(
-    `SELECT t.id, t.ticket_number FROM tickets t
-     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-     WHERE t.user_id = ? AND t.status = 'Selesai' AND tr.id IS NULL
-     LIMIT 1`,
-    [req.user.id]
-  );
-  if (unrated) {
-    return res.status(403).json({
-      message: 'Harap beri rating tiket sebelumnya sebelum membuat tiket baru',
-      pendingRating: true,
-      ticket_id: unrated.id,
-      ticket_number: unrated.ticket_number,
-    });
-  }
-
   const id = uuidv4();
-
-  // Generate ticket number on backend (server-side, not frontend)
-  const ticket_number = generateTicketNumber();
   const now = new Date();
+  let ticket_number;
 
-  await pool.query(
-    'INSERT INTO tickets (id, ticket_number, title, description, location, category, status, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, ticket_number, title, description, location || '', category, 'Pending', req.user.id, now, now]
-  );
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Check inside the transaction (with FOR UPDATE lock) to prevent race condition:
+    // without this, two concurrent requests could both pass the check and both insert.
+    const [[unrated]] = await conn.query(
+      `SELECT t.id, t.ticket_number FROM tickets t
+       LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
+       WHERE t.user_id = ? AND t.status = 'Selesai' AND t.deleted_at IS NULL AND tr.id IS NULL
+       LIMIT 1 FOR UPDATE`,
+      [req.user.id]
+    );
+    if (unrated) {
+      await conn.rollback();
+      conn.release();
+      return res.status(403).json({
+        message: 'Harap beri rating tiket sebelumnya sebelum membuat tiket baru',
+        pendingRating: true,
+        ticket_id: unrated.id,
+        ticket_number: unrated.ticket_number,
+      });
+    }
+
+    ticket_number = await TicketService.generateTicketNumber(conn);
+
+    await conn.query(
+      'INSERT INTO tickets (id, ticket_number, title, description, location, category, status, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, ticket_number, title, description, location || '', category, 'Pending', req.user.id, now, now]
+    );
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 
   await TicketService.invalidateTicketCaches(id);
   await invalidateAllDashboardCaches();
@@ -282,7 +309,7 @@ router.post('/', auth, role('Satker'), validate(ticketSchemas.create), asyncHand
 router.patch('/:id', auth, asyncHandler(async (req, res) => {
   const { status, assigned_technician_id, closed_at, title, description, location, category } = req.body;
   const [[existingTicket]] = await pool.query(
-    'SELECT id, user_id, status FROM tickets WHERE id = ? LIMIT 1',
+    'SELECT id, user_id, status FROM tickets WHERE id = ? AND deleted_at IS NULL LIMIT 1',
     [req.params.id]
   );
 
@@ -290,8 +317,11 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Tiket tidak ditemukan' });
   }
 
-  const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [req.user.id]);
-  const actualRole = dbUser?.role || req.user.role;
+  const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1', [req.user.id]);
+  if (!dbUser) {
+    return res.status(401).json({ success: false, message: 'Akses ditolak. Akun tidak aktif atau tidak ditemukan.' });
+  }
+  const actualRole = dbUser.role;
 
   // Satker hanya boleh update tiket miliknya sendiri dan hanya saat status Pending.
   if (actualRole === 'Satker') {
@@ -313,14 +343,42 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
     return res.status(403).json({ message: 'Teknisi tidak diizinkan mengubah tiket' });
   }
 
+  // Padal hanya boleh update tiket yang di-assign ke mereka
+  if (actualRole === 'Padal') {
+    const [[padalTicket]] = await pool.query(
+      'SELECT padal_id FROM tickets WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+      [req.params.id]
+    );
+    if (!padalTicket || padalTicket.padal_id !== req.user.id) {
+      return res.status(403).json({ message: 'Padal hanya dapat mengubah tiket yang ditugaskan ke Anda' });
+    }
+  }
+
+  // Validate assigned_technician_id — must be an active Teknisi user
+  if (assigned_technician_id !== undefined && assigned_technician_id !== null) {
+    const [[tech]] = await pool.query(
+      "SELECT id FROM users WHERE id = ? AND role = 'Teknisi' AND is_active = 1 AND deleted_at IS NULL LIMIT 1",
+      [assigned_technician_id]
+    );
+    if (!tech) {
+      return res.status(400).json({ message: 'assigned_technician_id bukan Teknisi yang valid atau aktif' });
+    }
+  }
+
   const querySets = [];
   const queryArgs = [];
 
   if (status !== undefined) { querySets.push('status = ?'); queryArgs.push(status); }
   if (assigned_technician_id !== undefined) { querySets.push('assigned_technician_id = ?'); queryArgs.push(assigned_technician_id); }
   if (closed_at !== undefined) {
-    // Convert ISO format to MySQL datetime format
+    // Validate ISO 8601 format before parsing to prevent Invalid Date errors
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(closed_at)) {
+      return res.status(400).json({ message: 'closed_at harus dalam format ISO 8601 (YYYY-MM-DDTHH:mm:ss)' });
+    }
     const date = new Date(closed_at);
+    if (isNaN(date.getTime())) {
+      return res.status(400).json({ message: 'closed_at tidak valid' });
+    }
     const mysqlDate = date.toISOString().slice(0, 19).replace('T', ' ');
     querySets.push('closed_at = ?');
     queryArgs.push(mysqlDate);
@@ -334,7 +392,7 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
 
   querySets.push('updated_at = NOW()');
   queryArgs.push(req.params.id);
-  await pool.query(`UPDATE tickets SET ${querySets.join(', ')} WHERE id = ?`, queryArgs);
+  await pool.query(`UPDATE tickets SET ${querySets.join(', ')} WHERE id = ? AND deleted_at IS NULL`, queryArgs);
 
   await TicketService.invalidateTicketCaches(req.params.id);
   await invalidateAllDashboardCaches();
@@ -352,7 +410,7 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
   // Jika status berubah ke Selesai, emit ticket:rating_required ke Satker
   if (status === 'Selesai') {
     const [[ticketInfo]] = await pool.query(
-      'SELECT user_id, ticket_number, title FROM tickets WHERE id = ?',
+      'SELECT user_id, ticket_number, title FROM tickets WHERE id = ? AND deleted_at IS NULL',
       [req.params.id]
     );
     if (ticketInfo?.user_id) {
@@ -369,7 +427,13 @@ router.patch('/:id', auth, asyncHandler(async (req, res) => {
 
 // Delete ticket
 router.delete('/:id', auth, role('Subtekinfo', 'Padal'), asyncHandler(async (req, res) => {
-  await pool.query('DELETE FROM tickets WHERE id = ?', [req.params.id]);
+  const [result] = await pool.query(
+    'UPDATE tickets SET deleted_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+    [req.params.id]
+  );
+  if (!result.affectedRows) {
+    return res.status(404).json({ message: 'Tiket tidak ditemukan' });
+  }
   await TicketService.invalidateTicketCaches(req.params.id);
   await invalidateAllDashboardCaches();
   res.json({ message: 'Deleted' });
@@ -377,6 +441,12 @@ router.delete('/:id', auth, role('Subtekinfo', 'Padal'), asyncHandler(async (req
 
 // Notes endpoints
 router.get('/:id/notes', auth, asyncHandler(async (req, res) => {
+  const [[ticket]] = await pool.query(
+    'SELECT id FROM tickets WHERE id = ? AND deleted_at IS NULL',
+    [req.params.id]
+  );
+  if (!ticket) return res.status(404).json({ message: 'Tiket tidak ditemukan' });
+
   const [rows] = await pool.query('SELECT n.*, u.name as technician_name, u.role FROM ticket_notes n JOIN users u ON n.technician_id = u.id WHERE n.ticket_id = ? ORDER BY n.created_at ASC', [req.params.id]);
   rows.forEach((r) => {
     r.created = r.created_at;
@@ -388,6 +458,20 @@ router.get('/:id/notes', auth, asyncHandler(async (req, res) => {
 
 router.post('/:id/notes', auth, role('Subtekinfo', 'Padal'), asyncHandler(async (req, res) => {
   const { note_content } = req.body;
+
+  // IDOR fix: Padal can only add notes to tickets they are assigned to
+  const [[ticket]] = await pool.query(
+    'SELECT id, padal_id FROM tickets WHERE id = ? AND deleted_at IS NULL',
+    [req.params.id]
+  );
+  if (!ticket) return res.status(404).json({ message: 'Tiket tidak ditemukan' });
+
+  if (req.user.role === 'Padal' && ticket.padal_id !== req.user.id) {
+    return res.status(403).json({
+      message: 'Anda hanya dapat menambahkan catatan pada tiket yang ditugaskan ke Anda'
+    });
+  }
+
   await pool.query('INSERT INTO ticket_notes (ticket_id, technician_id, note_content) VALUES (?, ?, ?)', [req.params.id, req.user.id, note_content]);
   res.status(201).json({ message: 'Note added' });
 }));
@@ -402,7 +486,7 @@ router.post('/:id/reject', auth, role('Subtekinfo'), asyncHandler(async (req, re
   }
 
   const [[ticket]] = await pool.query(
-    'SELECT id, ticket_number, title, status, user_id FROM tickets WHERE id = ?',
+    'SELECT id, ticket_number, title, status, user_id FROM tickets WHERE id = ? AND deleted_at IS NULL',
     [ticketId]
   );
   if (!ticket) return res.status(404).json({ message: 'Tiket tidak ditemukan' });
@@ -412,7 +496,7 @@ router.post('/:id/reject', auth, role('Subtekinfo'), asyncHandler(async (req, re
   }
 
   await pool.query(
-    "UPDATE tickets SET status = 'Ditolak', rejection_reason = ?, updated_at = NOW() WHERE id = ?",
+    "UPDATE tickets SET status = 'Ditolak', rejection_reason = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL",
     [reason.trim(), ticketId]
   );
 
@@ -443,11 +527,11 @@ router.post('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, re
   }
 
   // Cek tiket ada
-  const [[ticket]] = await pool.query('SELECT id, ticket_number, title, status, user_id AS satker_id FROM tickets WHERE id = ?', [ticketId]);
+  const [[ticket]] = await pool.query('SELECT id, ticket_number, title, status, user_id AS satker_id FROM tickets WHERE id = ? AND deleted_at IS NULL', [ticketId]);
   if (!ticket) return res.status(404).json({ message: 'Tiket tidak ditemukan' });
 
   // Cek Padal ada dan memang role Padal
-  const [[padal]] = await pool.query('SELECT id, name FROM users WHERE id = ? AND role = ?', [padal_id, 'Padal']);
+  const [[padal]] = await pool.query('SELECT id, name FROM users WHERE id = ? AND role = ? AND is_active = 1 AND deleted_at IS NULL', [padal_id, 'Padal']);
   if (!padal) return res.status(404).json({ message: 'Padal tidak ditemukan' });
 
   // Hapus assignment aktif sebelumnya jika ada
@@ -463,7 +547,7 @@ router.post('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, re
   );
 
   // Update padal_id di tiket
-  await pool.query('UPDATE tickets SET padal_id = ? WHERE id = ?', [padal_id, ticketId]);
+  await pool.query('UPDATE tickets SET padal_id = ? WHERE id = ? AND deleted_at IS NULL', [padal_id, ticketId]);
 
   await TicketService.invalidateTicketCaches(ticketId);
   await invalidateAllDashboardCaches();
@@ -484,7 +568,7 @@ router.post('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, re
 router.delete('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const ticketId = req.params.id;
 
-  const [[ticket]] = await pool.query('SELECT id FROM tickets WHERE id = ?', [ticketId]);
+  const [[ticket]] = await pool.query('SELECT id FROM tickets WHERE id = ? AND deleted_at IS NULL', [ticketId]);
   if (!ticket) return res.status(404).json({ message: 'Tiket tidak ditemukan' });
 
   // Batalkan semua assignment pending/accepted
@@ -495,7 +579,7 @@ router.delete('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, 
 
   // Kembalikan tiket ke Pending dan clear padal_id
   await pool.query(
-    "UPDATE tickets SET padal_id = NULL, status = 'Pending' WHERE id = ?",
+    "UPDATE tickets SET padal_id = NULL, status = 'Pending' WHERE id = ? AND deleted_at IS NULL",
     [ticketId]
   );
 
@@ -516,7 +600,7 @@ router.patch('/:id/assignment/respond', auth, role('Padal'), asyncHandler(async 
 
   // Cek assignment pending untuk Padal ini
   const [[assignment]] = await pool.query(
-    "SELECT ta.id, t.ticket_number, t.title, t.user_id AS satker_id FROM ticket_assignments ta JOIN tickets t ON t.id = ta.ticket_id WHERE ta.ticket_id = ? AND ta.padal_id = ? AND ta.status = 'pending_confirm'",
+    "SELECT ta.id, t.ticket_number, t.title, t.user_id AS satker_id FROM ticket_assignments ta JOIN tickets t ON t.id = ta.ticket_id WHERE ta.ticket_id = ? AND ta.padal_id = ? AND ta.status = 'pending_confirm' AND t.deleted_at IS NULL",
     [ticketId, req.user.id]
   );
   if (!assignment) return res.status(404).json({ message: 'Assignment pending tidak ditemukan' });
@@ -530,7 +614,7 @@ router.patch('/:id/assignment/respond', auth, role('Padal'), asyncHandler(async 
       [assignment.id]
     );
     await pool.query(
-      "UPDATE tickets SET status = 'Proses' WHERE id = ?",
+      "UPDATE tickets SET status = 'Proses' WHERE id = ? AND deleted_at IS NULL",
       [ticketId]
     );
 
@@ -559,7 +643,7 @@ router.patch('/:id/assignment/respond', auth, role('Padal'), asyncHandler(async 
       [note || null, assignment.id]
     );
     await pool.query(
-      "UPDATE tickets SET status = 'Pending', padal_id = NULL WHERE id = ?",
+      "UPDATE tickets SET status = 'Pending', padal_id = NULL WHERE id = ? AND deleted_at IS NULL",
       [ticketId]
     );
 
@@ -592,7 +676,7 @@ router.post('/:id/rating', auth, role('Satker'), asyncHandler(async (req, res) =
 
   // Cek tiket ada, milik user ini, dan berstatus Selesai
   const [[ticket]] = await pool.query(
-    "SELECT id, ticket_number, padal_id, status, user_id FROM tickets WHERE id = ? AND user_id = ?",
+    "SELECT id, ticket_number, padal_id, status, user_id FROM tickets WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
     [ticketId, req.user.id]
   );
   if (!ticket) return res.status(404).json({ message: 'Tiket tidak ditemukan' });

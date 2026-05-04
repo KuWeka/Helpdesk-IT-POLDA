@@ -17,16 +17,10 @@ const normalizeRole = (role) => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(() => {
-    const savedUser = localStorage.getItem('helpdesk_user');
-    if (!savedUser) return null;
-    try {
-      return JSON.parse(savedUser);
-    } catch (_) {
-      localStorage.removeItem('helpdesk_user');
-      return null;
-    }
-  });
+  // User state is kept only in React memory — never persisted to localStorage.
+  // Storing user data in localStorage is an XSS risk: any injected script can read it.
+  // On page load, the user is restored via /auth/me which reads the httpOnly cookie.
+  const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -67,7 +61,8 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(normalizedUser);
 
         if (normalizedUser) {
-          localStorage.setItem('helpdesk_user', JSON.stringify(normalizedUser));
+          // Only the CSRF token is stored in localStorage — it is not a secret
+          // (it protects against cross-site forgery, not identity theft).
           if (csrfToken) {
             localStorage.setItem('helpdesk_csrf_token', csrfToken);
           }
@@ -76,11 +71,9 @@ export const AuthProvider = ({ children }) => {
           socket.emit('join_user_room', normalizedUser.id);
           if (normalizedUser.role === 'Subtekinfo') socket.emit('join_subtekinfo_room');
         } else {
-          localStorage.removeItem('helpdesk_user');
           localStorage.removeItem('helpdesk_csrf_token');
         }
       } catch (err) {
-        localStorage.removeItem('helpdesk_user');
         localStorage.removeItem('helpdesk_csrf_token');
         if (mounted) {
           setCurrentUser(null);
@@ -113,11 +106,11 @@ export const AuthProvider = ({ children }) => {
 
       const normalizedUser = { ...user, role: normalizeRole(user.role) };
 
-      localStorage.setItem('helpdesk_user', JSON.stringify(normalizedUser));
+      // Store only the non-secret CSRF token; user identity lives in React state only
       if (csrfToken) {
         localStorage.setItem('helpdesk_csrf_token', csrfToken);
       }
-      
+
       setCurrentUser(normalizedUser);
       
       const role = normalizedUser.role || 'Satker';
@@ -169,7 +162,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     socket.disconnect();
-    localStorage.removeItem('helpdesk_user');
     localStorage.removeItem('helpdesk_csrf_token');
     setCurrentUser(null);
     navigate('/login');

@@ -11,6 +11,9 @@ const dbUser = process.env.DB_USER || 'root';
 const dbPassword = process.env.DB_PASS || process.env.DB_PASSWORD || '';
 const dbName = process.env.DB_NAME || 'helpdesk_db';
 
+// Optional: seed admin flag
+const shouldSeedAdmin = process.argv.includes('--seed-admin');
+
 const schemaPath = path.resolve(__dirname, '..', 'sql', 'schema.sql');
 const uploadsPath = path.resolve(__dirname, '..', 'uploads');
 const logsPath = path.resolve(__dirname, '..', 'logs');
@@ -95,6 +98,44 @@ async function main() {
   fs.mkdirSync(uploadsPath, { recursive: true });
   fs.mkdirSync(logsPath, { recursive: true });
   console.log('Directories ensured: uploads, logs');
+
+  // Seed admin account from environment variables (never from hardcoded values)
+  if (shouldSeedAdmin) {
+    const adminEmail = process.env.SEED_ADMIN_EMAIL;
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    const adminName = process.env.SEED_ADMIN_NAME || 'Super Admin';
+    const adminUsername = process.env.SEED_ADMIN_USERNAME || 'admin';
+
+    if (!adminEmail || !adminPassword) {
+      console.error('ERROR: --seed-admin requires SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD environment variables');
+      process.exit(1);
+    }
+
+    if (adminPassword.length < 12) {
+      console.error('ERROR: SEED_ADMIN_PASSWORD must be at least 12 characters');
+      process.exit(1);
+    }
+
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+    const passwordHash = await bcrypt.hash(adminPassword, BCRYPT_ROUNDS);
+
+    const seedConn = await mysql.createConnection({
+      host: dbHost, port: dbPort, user: dbUser, password: dbPassword, database: dbName,
+    });
+    try {
+      await seedConn.query(
+        `INSERT INTO users (id, name, email, username, password_hash, role, is_active, language, theme)
+         VALUES (?, ?, ?, ?, ?, 'Subtekinfo', TRUE, 'ID', 'light')
+         ON DUPLICATE KEY UPDATE name=VALUES(name)`,
+        [uuidv4(), adminName, adminEmail, adminUsername, passwordHash]
+      );
+      console.log(`Admin account seeded for: ${adminEmail}`);
+    } finally {
+      await seedConn.end();
+    }
+  }
 
   console.log('==========================================');
   console.log('Setup completed successfully');

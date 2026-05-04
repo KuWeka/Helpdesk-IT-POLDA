@@ -36,7 +36,7 @@ router.get('/', asyncHandler(async (req, res) => {
  * Update system settings (Admin only)
  * Body: { app_name?, app_description?, maintenance_mode? }
  */
-router.patch('/', auth, role('Admin'), asyncHandler(async (req, res) => {
+router.patch('/', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const { app_name, app_description, maintenance_mode, whatsapp_number } = req.body;
 
   const errors = [];
@@ -115,7 +115,7 @@ router.patch('/', auth, role('Admin'), asyncHandler(async (req, res) => {
  * Get activity logs (Admin only)
  * Query: action_type, page, perPage, limit, offset
  */
-router.get('/activity-logs', auth, role('Admin'), asyncHandler(async (req, res) => {
+router.get('/activity-logs', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const { action_type, page, perPage, limit, offset } = req.query;
 
   const pagination = parsePagination(page, perPage, limit, offset);

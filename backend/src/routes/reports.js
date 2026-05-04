@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const auth = require('../middleware/auth');
@@ -7,12 +8,24 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { ApiResponse } = require('../utils/apiResponse');
 const pool = require('../config/db');
 
+// Rate limiter: max 20 report exports per user per hour (heavy DB + file generation)
+const reportExportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id || rateLimit.ipKeyGenerator(req.ip),
+  message: 'Terlalu banyak permintaan export laporan. Silakan coba lagi dalam 1 jam.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 function validateMonthYear(month, year) {
   const m = parseInt(month, 10);
   const y = parseInt(year, 10);
-  if (!m || !y || m < 1 || m > 12 || y < 2000 || y > 2100) return null;
+  const currentYear = new Date().getFullYear();
+  // Restrict to reasonable range: 2020 through current year + 1 (to allow advance planning)
+  if (!m || !y || m < 1 || m > 12 || y < 2020 || y > currentYear + 1) return null;
   return { month: m, year: y };
 }
 
@@ -34,7 +47,7 @@ async function reportSatker(userId, month, year) {
       SUM(status = 'Ditolak') AS ditolak,
       SUM(status = 'Dibatalkan') AS dibatalkan
     FROM tickets
-    WHERE user_id = ? AND DATE_FORMAT(created_at, '%Y-%m') = ?
+    WHERE user_id = ? AND deleted_at IS NULL AND DATE_FORMAT(created_at, '%Y-%m') = ?
   `, [userId, prefix]);
 
   const [tickets] = await pool.query(`
@@ -46,7 +59,7 @@ async function reportSatker(userId, month, year) {
     FROM tickets t
     LEFT JOIN users u ON u.id = t.padal_id
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.user_id = ? AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE t.user_id = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
     ORDER BY t.created_at DESC
   `, [userId, prefix]);
 
@@ -64,7 +77,7 @@ async function reportPadal(userId, month, year) {
       ROUND(AVG(tr.rating), 2) AS rata_rating
     FROM tickets t
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.padal_id = ? AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE t.padal_id = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
   `, [userId, prefix]);
 
   const [tickets] = await pool.query(`
@@ -76,7 +89,7 @@ async function reportPadal(userId, month, year) {
     FROM tickets t
     LEFT JOIN users u ON u.id = t.user_id
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.padal_id = ? AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE t.padal_id = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
     ORDER BY t.created_at DESC
   `, [userId, prefix]);
 
@@ -96,7 +109,7 @@ async function reportSubtekinfo(month, year) {
       ROUND(AVG(TIMESTAMPDIFF(MINUTE, t.created_at,
         CASE WHEN t.status = 'Selesai' THEN t.updated_at END)), 0) AS avg_menit_selesai
     FROM tickets t
-    WHERE DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
   `, [prefix]);
 
   const [perPadal] = await pool.query(`
@@ -107,7 +120,7 @@ async function reportSubtekinfo(month, year) {
     FROM tickets t
     JOIN users u ON u.id = t.padal_id
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.padal_id IS NOT NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE t.padal_id IS NOT NULL AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
     GROUP BY t.padal_id, u.name
     ORDER BY selesai DESC
   `, [prefix]);
@@ -118,7 +131,7 @@ async function reportSubtekinfo(month, year) {
            DATE_FORMAT(t.updated_at, '%d/%m/%Y') AS tanggal_tolak
     FROM tickets t
     JOIN users u ON u.id = t.user_id
-    WHERE t.status = 'Ditolak' AND DATE_FORMAT(t.updated_at, '%Y-%m') = ?
+    WHERE t.status = 'Ditolak' AND t.deleted_at IS NULL AND DATE_FORMAT(t.updated_at, '%Y-%m') = ?
     ORDER BY t.updated_at DESC
   `, [prefix]);
 
@@ -126,7 +139,7 @@ async function reportSubtekinfo(month, year) {
     SELECT u.name AS nama_satker, COUNT(t.id) AS total_tiket
     FROM tickets t
     JOIN users u ON u.id = t.user_id
-    WHERE DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
     GROUP BY t.user_id, u.name
     ORDER BY total_tiket DESC
     LIMIT 10
@@ -162,7 +175,7 @@ router.get('/monthly', auth, asyncHandler(async (req, res) => {
 
 // ─── GET /api/reports/monthly/export ─────────────────────────────────────────
 
-router.get('/monthly/export', auth, asyncHandler(async (req, res) => {
+router.get('/monthly/export', auth, reportExportLimiter, asyncHandler(async (req, res) => {
   const { month, year, format } = req.query;
   const period = validateMonthYear(month, year);
   if (!period) {

@@ -3,18 +3,32 @@ const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
+const rateLimit = require('express-rate-limit');
 const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
 
+// Rate limit: 30 requests per minute per user — prevents DoS via expensive aggregate queries
+const dashboardLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => req.user?.id || rateLimit.ipKeyGenerator(req.ip),
+  message: 'Terlalu banyak permintaan dashboard. Silakan coba lagi nanti.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const sendDashboardResponse = (res, payload, cacheStatus, startedAt, operation) => {
   const duration = Date.now() - startedAt;
-  res.setHeader('X-Cache', cacheStatus);
-  res.setHeader('X-Response-Time-Ms', String(duration));
+  // Only expose cache/timing debug headers in non-production environments
+  if (process.env.NODE_ENV !== 'production') {
+    res.setHeader('X-Cache', cacheStatus);
+    res.setHeader('X-Response-Time-Ms', String(duration));
+  }
   logger.performance(operation, duration, { cache: cacheStatus });
   return res.json(payload);
 };
 
-router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
+router.get('/admin-summary', auth, role('Subtekinfo'), dashboardLimiter, async (req, res) => {
   try {
     const startedAt = Date.now();
     const forceRefresh = req.query.refresh === 'true';
@@ -43,20 +57,21 @@ router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
           SUM(CASE WHEN status = 'Proses' THEN 1 ELSE 0 END) as proses,
           SUM(CASE WHEN status = 'Selesai' THEN 1 ELSE 0 END) as selesai
         FROM tickets
+        WHERE deleted_at IS NULL
       `),
       pool.query(`
         SELECT count(*) as count
         FROM users
-        WHERE role = 'Teknisi' AND is_active = 1
+        WHERE role = 'Teknisi' AND is_active = 1 AND deleted_at IS NULL
       `),
-      pool.query('SELECT count(*) as count FROM users'),
+      pool.query('SELECT count(*) as count FROM users WHERE deleted_at IS NULL'),
       pool.query(`
         SELECT t.id, t.ticket_number, t.title, t.created_at,
                u.name as reporter_name, tech.name as technician_name
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-        WHERE t.status = 'Pending'
+        WHERE t.status = 'Pending' AND t.deleted_at IS NULL
         ORDER BY t.created_at DESC
         LIMIT 10
       `),
@@ -66,7 +81,7 @@ router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-        WHERE t.status = 'Proses'
+        WHERE t.status = 'Proses' AND t.deleted_at IS NULL
         ORDER BY t.created_at DESC
         LIMIT 10
       `),
@@ -76,7 +91,7 @@ router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-        WHERE t.status = 'Selesai'
+        WHERE t.status = 'Selesai' AND t.deleted_at IS NULL
         ORDER BY t.closed_at DESC, t.created_at DESC
         LIMIT 10
       `),
@@ -85,6 +100,7 @@ router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
         FROM tickets t
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
         WHERE t.status = 'Selesai'
+          AND t.deleted_at IS NULL
           AND t.assigned_technician_id IS NOT NULL
           AND t.assigned_technician_id != ''
           AND t.closed_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
@@ -130,14 +146,14 @@ router.get('/admin-summary', auth, role('Subtekinfo'), async (req, res) => {
   }
 });
 
-router.get('/technician-summary', auth, async (req, res) => {
+router.get('/technician-summary', auth, dashboardLimiter, async (req, res) => {
   try {
     const startedAt = Date.now();
     const technicianId = req.user.id;
 
     // Verify role from DB (JWT may be stale right after a role change)
     const [[roleRow]] = await pool.query(
-      `SELECT role FROM users WHERE id = ? AND is_active = 1 LIMIT 1`,
+      `SELECT role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1`,
       [technicianId]
     );
     if (!roleRow || roleRow.role !== 'Teknisi') {
@@ -173,6 +189,7 @@ router.get('/technician-summary', auth, async (req, res) => {
           SUM(CASE WHEN status = 'Selesai' AND assigned_technician_id = ? AND DATE(closed_at) = CURDATE() THEN 1 ELSE 0 END) as completedToday,
           SUM(CASE WHEN assigned_technician_id = ? AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 ELSE 0 END) as totalThisMonth
         FROM tickets
+        WHERE deleted_at IS NULL
       `, [technicianId, technicianId, technicianId]),
       pool.query(`
         SELECT t.id, t.ticket_number, t.title, t.created_at,
@@ -180,7 +197,7 @@ router.get('/technician-summary', auth, async (req, res) => {
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-        WHERE t.status = 'Pending'
+        WHERE t.status = 'Pending' AND t.deleted_at IS NULL
         ORDER BY t.created_at DESC
         LIMIT 10
       `),
@@ -190,7 +207,7 @@ router.get('/technician-summary', auth, async (req, res) => {
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-        WHERE t.status = 'Proses' AND t.assigned_technician_id = ?
+        WHERE t.status = 'Proses' AND t.assigned_technician_id = ? AND t.deleted_at IS NULL
         ORDER BY t.created_at DESC
         LIMIT 10
       `, [technicianId]),
@@ -203,7 +220,7 @@ router.get('/technician-summary', auth, async (req, res) => {
                ts.specializations
         FROM users u
         LEFT JOIN technician_settings ts ON ts.user_id = u.id
-        WHERE u.id = ?
+        WHERE u.id = ? AND u.deleted_at IS NULL
         LIMIT 1
       `, [technicianId])
     ]);
@@ -255,38 +272,28 @@ router.get('/technician-summary', auth, async (req, res) => {
   }
 });
 
-router.get('/stats', auth, role('Subtekinfo'), async (req, res) => {
+router.get('/stats', auth, role('Subtekinfo'), dashboardLimiter, async (req, res) => {
   try {
-    const [ticketCounts] = await pool.query(`
-      SELECT status, count(*) as count FROM tickets GROUP BY status
-    `);
-    
-    let pending = 0, process = 0, done = 0;
-    ticketCounts.forEach(r => {
-      if (r.status === 'Pending') pending = r.count;
-      if (r.status === 'Proses') process = r.count;
-      if (r.status === 'Selesai') done = r.count;
-    });
-
-    const totalTickets = pending + process + done + ticketCounts.filter(r => r.status === 'Ditolak' || r.status === 'Dibatalkan').reduce((sum, r) => sum + r.count, 0);
-
-    const [techCount] = await pool.query(`
-      SELECT count(*) as count
-      FROM users
-      WHERE role = 'Teknisi' AND is_active = 1
-    `);
-    
-    const [userCount] = await pool.query(`
-      SELECT count(*) as count FROM users
+    // Combine all counts into a single query instead of 3 sequential queries
+    const [[statsRow]] = await pool.query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN t.status = 'Pending' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN t.status = 'Proses' THEN 1 ELSE 0 END) AS proses,
+        SUM(CASE WHEN t.status = 'Selesai' THEN 1 ELSE 0 END) AS selesai,
+        (SELECT COUNT(*) FROM users WHERE role = 'Teknisi' AND is_active = 1 AND deleted_at IS NULL) AS activeTechs,
+        (SELECT COUNT(*) FROM users WHERE deleted_at IS NULL) AS totalUsers
+      FROM tickets t
+      WHERE t.deleted_at IS NULL
     `);
 
     res.json({
-      totalTickets,
-      pending,
-      proses: process,
-      selesai: done,
-      activeTechs: techCount[0]?.count || 0,
-      totalUsers: userCount[0]?.count || 0
+      totalTickets: Number(statsRow.total || 0),
+      pending: Number(statsRow.pending || 0),
+      proses: Number(statsRow.proses || 0),
+      selesai: Number(statsRow.selesai || 0),
+      activeTechs: Number(statsRow.activeTechs || 0),
+      totalUsers: Number(statsRow.totalUsers || 0),
     });
   } catch (error) {
     logger.error('Failed to get dashboard stats', { error: error.message, userId: req.user?.id });

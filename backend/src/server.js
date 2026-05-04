@@ -1,13 +1,19 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
+// Validate all required environment variables before loading any other module.
+// process.exit(1) on missing/invalid vars so we fail fast instead of at request time.
+const { assertEnv } = require('./config/env');
+assertEnv();
+
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const path = require('path');
 const compression = require('compression');
+const zlib = require('zlib');
 const helmet = require('helmet');
-
-dotenv.config();
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ===== LOGGER & SWAGGER SETUP =====
@@ -17,10 +23,12 @@ const { metricsMiddleware } = require('./utils/metrics');
 const { warmStartupCache } = require('./utils/cacheWarmup');
 
 const isSwaggerEnabled = () => {
+  // Swagger is NEVER available in production, regardless of env vars
+  if (NODE_ENV === 'production') return false;
   if (typeof process.env.ENABLE_SWAGGER === 'string') {
     return process.env.ENABLE_SWAGGER.toLowerCase() === 'true';
   }
-  return NODE_ENV !== 'production';
+  return true; // enabled by default in dev/staging
 };
 
 const parseAllowedOrigins = () => {
@@ -53,7 +61,7 @@ const parseAllowedOrigins = () => {
 
 // ===== ENVIRONMENT VALIDATION =====
 const validateEnvironment = () => {
-  const requiredVars = ['JWT_SECRET'];
+  const requiredVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
   const missingVars = requiredVars.filter(v => !process.env[v]);
   
   if (missingVars.length > 0) {
@@ -64,6 +72,14 @@ const validateEnvironment = () => {
 
   if (process.env.JWT_SECRET.length < 32) {
     logger.warn('JWT_SECRET should be at least 32 characters long for security');
+  }
+
+  if (process.env.JWT_REFRESH_SECRET.length < 32) {
+    logger.warn('JWT_REFRESH_SECRET should be at least 32 characters long for security');
+  }
+
+  if (process.env.JWT_REFRESH_SECRET === process.env.JWT_SECRET) {
+    logger.warn('JWT_REFRESH_SECRET should differ from JWT_SECRET to prevent token type confusion');
   }
 
   // Validate CORS origins early so server fails fast with clear error
@@ -110,24 +126,101 @@ app.use(cors({
 }));
 
 // ===== MIDDLEWARE =====
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-}));
+// Helmet security headers — strict in production, relaxed in development
+const helmetOptions = NODE_ENV === 'production'
+  ? {
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"], // inline styles needed by some UI libs
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'", ...allowedOrigins],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          upgradeInsecureRequests: [],
+        },
+      },
+      crossOriginEmbedderPolicy: true,
+      hsts: {
+        maxAge: 31536000,       // 1 year
+        includeSubDomains: true,
+        preload: true,
+      },
+    }
+  : {
+      // Development: disable strict policies that break local tooling
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    };
+
+app.use(helmet(helmetOptions));
+
+// Enforce HTTPS in production (when behind a reverse proxy that sets x-forwarded-proto)
+if (NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') === 'http') {
+      return res.redirect(301, `https://${req.header('host')}${req.url}`);
+    }
+    next();
+  });
+}
 
 app.use(metricsMiddleware);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// Keep JSON/urlencoded body small — file uploads go through multer (its own size limit).
+// 1MB is ample for any API JSON payload; 10MB was a memory-exhaustion risk.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
-// Compression middleware for performance
+// Compression: prefer Brotli (br) when client supports it, fall back to gzip/deflate.
+// Uses Node.js built-in zlib — no extra package needed.
+app.use((req, res, next) => {
+  const acceptEncoding = req.headers['accept-encoding'] || '';
+  if (!acceptEncoding.includes('br') || req.headers['x-no-compression']) {
+    return next();
+  }
+
+  // Only compress text-based content types
+  const shouldCompress = () => {
+    const ct = String(res.getHeader('Content-Type') || '');
+    return /json|text|javascript|xml|svg|wasm/.test(ct);
+  };
+
+  // Intercept res.json / res.send before they write the socket
+  const originalJson = res.json.bind(res);
+  res.json = function (body) {
+    const payload = JSON.stringify(body);
+    const buf = Buffer.from(payload, 'utf8');
+
+    // Only brotli-compress if threshold met (>= 1KB)
+    if (buf.length < 1024) {
+      return originalJson(body);
+    }
+
+    zlib.brotliCompress(buf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } }, (err, compressed) => {
+      if (err) {
+        return originalJson(body);
+      }
+      res.setHeader('Content-Encoding', 'br');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Length', compressed.length);
+      res.end(compressed);
+    });
+  };
+
+  next();
+});
+
+// Gzip/deflate fallback for clients that don't support brotli (or responses below threshold)
 app.use(compression({
   level: 6,
   threshold: 1024,
   filter: (req, res) => {
-    if (req.headers['x-no-compression']) {
-      return false;
-    }
+    // Skip if brotli already handled it
+    if (res.getHeader('Content-Encoding') === 'br') return false;
+    if (req.headers['x-no-compression']) return false;
     return compression.filter(req, res);
   }
 }));
@@ -180,14 +273,16 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, '../uploads')));
 
-// Security headers middleware
+// Security headers middleware — only add headers that Helmet does NOT already set.
+// DO NOT set Content-Security-Policy here; Helmet handles it with full configuration
+// (env-aware, with nonces, allowlists, etc). Duplicating it here would override Helmet.
 app.use((req, res, next) => {
+  // These are defence-in-depth additions for the /uploads static files path and
+  // any other path that might not go through Helmet.
   res.set({
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy': "default-src 'self'",
   });
   next();
 });

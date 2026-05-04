@@ -14,7 +14,7 @@ const { ApiResponse } = require('../utils/apiResponse');
  * GET /api/technicians
  * Get all technicians with their settings
  */
-router.get('/', auth, asyncHandler(async (req, res) => {
+router.get('/', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
   const [rows] = await pool.query(`
     SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at,
            COUNT(pm.id) AS member_count
@@ -115,8 +115,8 @@ router.post('/', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
 
   // Create technician
   const id = uuidv4();
-  const salt = await bcrypt.genSalt(12);
-  const password_hash = await bcrypt.hash(password, salt);
+  const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+  const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   await pool.query(
     'INSERT INTO users (id, name, email, password_hash, phone, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',

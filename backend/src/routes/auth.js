@@ -13,6 +13,9 @@ const { ApiResponse } = require('../utils/apiResponse');
 const UserService = require('../services/UserService');
 const { parseCookies, parseDurationToMs } = require('../utils/cookies');
 const { CSRF_COOKIE_NAME } = require('../middleware/csrf');
+const { normalizeRole } = require('../config/roles');
+const cache = require('../utils/cache');
+const logger = require('../utils/logger');
 
 const ACCESS_TOKEN_COOKIE_NAME = process.env.ACCESS_TOKEN_COOKIE_NAME || 'helpdesk_access_token';
 const REFRESH_TOKEN_COOKIE_NAME = process.env.REFRESH_TOKEN_COOKIE_NAME || 'helpdesk_refresh_token';
@@ -100,20 +103,20 @@ const registerLimiter = rateLimit({
   }
 });
 
-const normalizeRole = (role) => {
-  if (!role) return 'Satker';
-  if (role === 'User' || role === 'user') return 'Satker';
-  if (role === 'Admin' || role === 'admin') return 'Subtekinfo';
-  if (role === 'Teknisi' || role === 'teknisi') return 'Teknisi';
-  if (role === 'Padal' || role === 'padal') return 'Padal';
-  if (role === 'Satker' || role === 'satker') return 'Satker';
-  if (role === 'Subtekinfo' || role === 'subtekinfo') return 'Subtekinfo';
-  return 'Satker'; // default fallback
-};
+// Rate limiter for token refresh — prevents brute-force of stolen refresh tokens
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  keyGenerator: (req) => rateLimit.ipKeyGenerator(req.ip),
+  message: 'Terlalu banyak permintaan refresh token. Silakan coba lagi nanti.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Apply rate limiters
 router.use('/login', loginLimiter);
 router.use('/register', registerLimiter);
+router.use('/refresh', refreshLimiter);
 
 /**
  * POST /api/auth/login
@@ -129,6 +132,7 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
   );
 
   if (rows.length === 0) {
+    logger.warn('Login failed: user not found or inactive', { identifier: identifier.slice(0, 3) + '***', ip: req.ip });
     return res.status(401).json(ApiResponse.error('Akun dengan kredensial tersebut tidak ditemukan atau tidak aktif', null, 401));
   }
 
@@ -136,6 +140,7 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
 
   const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) {
+    logger.warn('Login failed: wrong password', { userId: user.id, ip: req.ip });
     return res.status(401).json(ApiResponse.error('Email/Username atau password salah', null, 401));
   }
 
@@ -154,9 +159,8 @@ router.post('/login', validate(authSchemas.login), asyncHandler(async (req, res)
   // Generate refresh token (long-lived)
   const refreshToken = jwt.sign(
     { id: user.id },
-    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d' }
-  );
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d' }  );
 
   const csrfToken = issueAuthCookies(res, accessToken, refreshToken);
 
@@ -217,7 +221,7 @@ router.post('/refresh', asyncHandler(async (req, res) => {
   try {
     const decoded = jwt.verify(
       refreshToken, 
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET
+      process.env.JWT_REFRESH_SECRET
     );
 
     // Get fresh user data
@@ -242,7 +246,7 @@ router.post('/refresh', asyncHandler(async (req, res) => {
     // Rotate refresh token
     const rotatedRefreshToken = jwt.sign(
       { id: user.id },
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      process.env.JWT_REFRESH_SECRET,
       { expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d' }
     );
 
@@ -265,6 +269,10 @@ router.post('/refresh', asyncHandler(async (req, res) => {
  */
 router.post('/logout', auth, asyncHandler(async (req, res) => {
   clearAuthCookies(res);
+  // Blacklist the access token in Redis so it cannot be reused even before natural expiry.
+  // Key is per-user so a global logout (e.g. password change) can also be done with one write.
+  const ttlSeconds = Math.ceil(accessTokenMaxAge / 1000);
+  await cache.set(`token:blacklist:${req.user.id}`, Date.now(), ttlSeconds);
   return res.json(ApiResponse.success(null, 'Logout berhasil'));
 }));
 

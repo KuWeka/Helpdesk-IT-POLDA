@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { parseCookies } = require('../utils/cookies');
+const cache = require('../utils/cache');
 
 // Validate JWT_SECRET on module load
 const validateJWTSecret = () => {
@@ -33,17 +34,12 @@ try {
   process.exit(1);
 }
 
-const auth = (req, res, next) => {
+const auth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    // Read token exclusively from httpOnly cookie — the Authorization Bearer header
+    // path is removed to prevent token theft via XSS (JS cannot read httpOnly cookies).
     const cookies = parseCookies(req);
-
-    let token = null;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else {
-      token = cookies[process.env.ACCESS_TOKEN_COOKIE_NAME || 'helpdesk_access_token'];
-    }
+    const token = cookies[process.env.ACCESS_TOKEN_COOKIE_NAME || 'helpdesk_access_token'];
 
     if (!token) {
       return res.status(401).json({ 
@@ -53,6 +49,16 @@ const auth = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Check token blacklist (set on logout) to support immediate revocation
+    const isBlacklisted = await cache.exists(`token:blacklist:${decoded.id}`);
+    if (isBlacklisted) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session telah berakhir. Silakan login kembali.',
+      });
+    }
+
     req.user = decoded;
     
     next();

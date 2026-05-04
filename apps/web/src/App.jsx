@@ -47,28 +47,8 @@ import ActivityLogsPage from '@/pages/admin/ActivityLogsPage.jsx';
 import SystemSettingsPage from '@/pages/admin/SystemSettingsPage.jsx';
 
 import { Toaster } from '@/components/ui/sonner.jsx';
+import ErrorBoundary from '@/components/common/ErrorBoundary.jsx';
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex h-screen w-full items-center justify-center flex-col gap-4">
-          <h2 className="text-2xl font-bold">Terjadi Kesalahan (500)</h2>
-          <p className="text-muted-foreground">Aplikasi mengalami kendala teknis.</p>
-          <button onClick={() => window.location.href='/'} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Muat Ulang</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 function RootRedirect() {
   const { currentUser } = useAuth();

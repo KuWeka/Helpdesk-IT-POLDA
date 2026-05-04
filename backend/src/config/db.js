@@ -11,7 +11,9 @@ const pool = mysql.createPool({
   // Connection pooling
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 10,
-  queueLimit: parseInt(process.env.DB_QUEUE_LIMIT) || 0,
+  // Cap the wait queue at 50. With queueLimit: 0 (unlimited) a sudden spike could
+  // queue thousands of requests and exhaust memory before they time out.
+  queueLimit: parseInt(process.env.DB_QUEUE_LIMIT) || 50,
 
   // MySQL specific
   timezone: '+07:00',

@@ -35,9 +35,19 @@ router.get('/', async (req, res) => {
       connections: pool.pool ? pool.pool.size : 'unknown'
     };
 
-    // Cache stats
+    // Cache: do an actual PING to confirm Redis is responsive, not just the isConnected flag
+    // (the flag can be stale after a network partition that hasn't fully disconnected yet)
+    let cacheStatus = 'disconnected';
+    if (cache.isConnected && cache.client) {
+      try {
+        const pong = await cache.client.ping();
+        cacheStatus = pong === 'PONG' ? 'connected' : 'degraded';
+      } catch {
+        cacheStatus = 'degraded';
+      }
+    }
     health.cache = {
-      status: cache.isConnected ? 'connected' : 'disconnected',
+      status: cacheStatus,
       provider: 'redis'
     };
 
@@ -60,11 +70,19 @@ router.get('/', async (req, res) => {
  */
 router.get('/ready', async (req, res) => {
   try {
+    // Check DB
     const connection = await pool.getConnection();
     await connection.ping();
     connection.release();
 
-    res.status(200).json({ status: 'ready' });
+    // Check Redis (if configured) — a degraded cache should not block readiness,
+    // but a completely missing Redis in a Redis-required setup should.
+    // We report degraded rather than failing so a Redis outage doesn't kill the service.
+    const redisOk = cache.isConnected && cache.client
+      ? await cache.client.ping().then(r => r === 'PONG').catch(() => false)
+      : true; // Redis is optional; if not connected, treat as OK
+
+    res.status(200).json({ status: 'ready', cache: redisOk ? 'ok' : 'degraded' });
   } catch (error) {
     res.status(503).json({ status: 'not ready', error: error.message });
   }

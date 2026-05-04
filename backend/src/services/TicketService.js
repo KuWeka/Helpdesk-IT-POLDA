@@ -24,7 +24,10 @@ class TicketService {
    */
   static async getTickets(filters = {}, pagination = {}) {
     const { page = 1, perPage = 20 } = pagination;
-    const offset = (page - 1) * perPage;
+    const MAX_PER_PAGE = 100;
+    const safePerPage = Math.min(Math.max(parseInt(perPage) || 20, 1), MAX_PER_PAGE);
+    const safePage = Math.max(parseInt(page) || 1, 1);
+    const offset = (safePage - 1) * safePerPage;
 
     let query = `
       SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name
@@ -32,7 +35,7 @@ class TicketService {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
       LEFT JOIN users padal ON t.padal_id = padal.id
-      WHERE 1=1
+      WHERE t.deleted_at IS NULL
     `;
     const params = [];
 
@@ -78,14 +81,17 @@ class TicketService {
     const total = countResult[0].total;
 
     // Apply sorting and pagination
-    const sortField = filters.sort || 'created_at';
-    const sortOrder = filters.order || 'DESC';
+    // Whitelist sort fields and order to prevent SQL injection via string interpolation
+    const ALLOWED_SORT_FIELDS = ['created_at', 'updated_at', 'status', 'title', 'ticket_number', 'closed_at'];
+    const ALLOWED_SORT_ORDERS = ['ASC', 'DESC'];
+    const sortField = ALLOWED_SORT_FIELDS.includes(filters.sort) ? filters.sort : 'created_at';
+    const sortOrder = ALLOWED_SORT_ORDERS.includes(filters.order?.toUpperCase()) ? filters.order.toUpperCase() : 'DESC';
     query += ` ORDER BY t.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
-    params.push(perPage, offset);
+    params.push(safePerPage, offset);
 
     const listCacheKey = this.buildKey('tickets:list', {
-      page,
-      perPage,
+      page: safePage,
+      perPage: safePerPage,
       ...filters,
     });
 
@@ -98,7 +104,7 @@ class TicketService {
 
     const payload = {
       tickets: rows,
-      pagination: { page, perPage, total, totalPages: Math.ceil(total / perPage) }
+      pagination: { page: safePage, perPage: safePerPage, total, totalPages: Math.ceil(total / safePerPage) }
     };
 
     await cache.set(listCacheKey, payload, 60);
@@ -119,7 +125,7 @@ class TicketService {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
       LEFT JOIN users padal ON t.padal_id = padal.id
-      WHERE t.id = ?
+      WHERE t.id = ? AND t.deleted_at IS NULL
     `, [id]);
     ticket = rows[0] || null;
     if (ticket) await cache.set(cacheKey, ticket, 3600); // cache for 1 hour
@@ -172,7 +178,17 @@ class TicketService {
     const fields = [];
     const params = [];
 
+    // Whitelist allowed column names to prevent SQL injection via dynamic key names
+    const ALLOWED_UPDATE_FIELDS = [
+      'title', 'description', 'category', 'status', 'location',
+      'assigned_technician_id', 'padal_id', 'solution', 'closed_at',
+      'rejection_reason'
+    ];
+
     Object.keys(updateData).forEach(key => {
+      if (!ALLOWED_UPDATE_FIELDS.includes(key)) {
+        throw new Error(`Field '${key}' tidak diizinkan untuk diupdate`);
+      }
       if (updateData[key] !== undefined) {
         fields.push(`${key} = ?`);
         params.push(updateData[key]);
@@ -188,7 +204,7 @@ class TicketService {
     params.push(id);
 
     await pool.query(
-      `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
+      `UPDATE tickets SET ${fields.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
       params
     );
 
@@ -201,26 +217,39 @@ class TicketService {
    * Delete ticket
    */
   static async deleteTicket(id) {
-    await pool.query('DELETE FROM tickets WHERE id = ?', [id]);
+    await pool.query('UPDATE tickets SET deleted_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL', [id]);
     await this.invalidateTicketCaches(id);
   }
 
   /**
    * Generate unique ticket number
    */
-  static async generateTicketNumber() {
+  static async generateTicketNumber(executor = null) {
+    const managedConnection = !executor;
+    const db = executor || await pool.getConnection();
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
 
-    // Get the next sequence number for this month
-    const [rows] = await pool.query(`
-      SELECT COUNT(*) as count FROM tickets
-      WHERE YEAR(created_at) = ? AND MONTH(created_at) = ?
-    `, [year, date.getMonth() + 1]);
+    // Use LAST_INSERT_ID(counter + 1) so each concurrent request receives
+    // a unique sequence value on its own connection.
+    const prefix = `${year}${month}`;
+    try {
+      await db.query(
+        `INSERT INTO ticket_sequences (month_prefix, counter)
+         VALUES (?, 1)
+         ON DUPLICATE KEY UPDATE counter = LAST_INSERT_ID(counter + 1)`,
+        [prefix]
+      );
 
-    const sequence = String(rows[0].count + 1).padStart(4, '0');
-    return `TKT-${year}${month}-${sequence}`;
+      const [seqRows] = await db.query('SELECT LAST_INSERT_ID() AS seq');
+      const sequence = String(seqRows[0].seq).padStart(4, '0');
+      return `TKT-${year}${month}-${sequence}`;
+    } finally {
+      if (managedConnection) {
+        db.release();
+      }
+    }
   }
 
   /**
@@ -239,8 +268,9 @@ class TicketService {
         SUM(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) as open,
         SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
         SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-        SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) as closed,
+        SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) as closed
       FROM tickets
+      WHERE deleted_at IS NULL
     `);
 
     await cache.set(cacheKey, stats[0], 60);

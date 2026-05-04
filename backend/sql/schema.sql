@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(50) UNIQUE DEFAULT NULL,
   password_hash VARCHAR(255) NOT NULL,
   phone VARCHAR(20),
-  role ENUM('Admin', 'Teknisi', 'User') DEFAULT 'User',
+  role ENUM('Subtekinfo', 'Padal', 'Teknisi', 'Satker') DEFAULT 'Satker',
   is_active BOOLEAN DEFAULT TRUE,
   division_id INT NULL,
   language VARCHAR(10) DEFAULT 'ID',
@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE SET NULL,
-  INDEX idx_users_role_is_active (role, is_active)
+  INDEX idx_users_role_is_active (role, is_active),
+  INDEX idx_users_email (email),           -- fast login lookups by email
+  INDEX idx_users_username (username)      -- fast login lookups by username
 );
 
 CREATE TABLE IF NOT EXISTS system_settings (
@@ -66,6 +68,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   INDEX idx_status (status),
   INDEX idx_user_id (user_id),
   INDEX idx_tech_id (assigned_technician_id),
+  INDEX idx_tickets_padal_id (padal_id),        -- fast lookup for Padal dashboard filters
   INDEX idx_tickets_status_created_at (status, created_at),
   INDEX idx_tickets_status_closed_at (status, closed_at)
 );
@@ -78,7 +81,8 @@ CREATE TABLE IF NOT EXISTS ticket_attachments (
   file_size INT,
   mime_type VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+  INDEX idx_ticket_attachments_ticket_id (ticket_id)  -- fast attachment list per ticket
 );
 
 CREATE TABLE IF NOT EXISTS ticket_notes (
@@ -113,7 +117,7 @@ CREATE TABLE IF NOT EXISTS messages (
   id INT AUTO_INCREMENT PRIMARY KEY,
   chat_id VARCHAR(36) NOT NULL,
   sender_id VARCHAR(36) NOT NULL,
-  sender_role ENUM('User', 'Teknisi', 'Admin') NOT NULL,
+  sender_role ENUM('Satker', 'Teknisi', 'Padal', 'Subtekinfo') NOT NULL,
   message_content TEXT NOT NULL,
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -148,17 +152,8 @@ VALUES (1, 'IT Helpdesk', 'IT Helpdesk System', FALSE)
 ON DUPLICATE KEY UPDATE id=id;
 
 -- Seed Admin User
--- Password for the seed admin is "Admin123!" using bcrypt hash
-INSERT INTO users (id, name, email, username, password_hash, role, is_active, language, theme)
-VALUES (
-  'admin-uuid-1',
-  'Super Admin',
-  'admin@admin.com',
-  'admin',
-  '$2a$12$K.zM2T.l4M9xSOfQeT.m1e3PzFw6i82/WfGzY.eJ4WwK7W0J0l5vG',
-  'Admin',
-  TRUE,
-  'ID',
-  'light'
-)
-ON DUPLICATE KEY UPDATE email=email;
+-- SECURITY: Default credentials have been removed from this file.
+-- To create the initial admin account, run:
+--   node scripts/setup-db.js --seed-admin
+-- or set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD environment variables
+-- before running the setup script. Never commit credentials to version control.
