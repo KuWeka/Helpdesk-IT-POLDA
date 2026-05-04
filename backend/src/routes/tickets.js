@@ -35,6 +35,8 @@ const { invalidateAllDashboardCaches } = require('../utils/dashboardCache');
 
 // Get all tickets
 router.get('/', auth, ticketListLimiter, validateQuery(ticketSchemas.list), asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
   const { status, user_id, assigned_technician_id, unassigned, from, to, search, page, perPage, sort, order } = req.query;
 
   // Lookup real role from DB (JWT may be stale after role change)

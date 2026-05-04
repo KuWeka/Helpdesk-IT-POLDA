@@ -28,15 +28,27 @@ class TicketService {
     const safePerPage = Math.min(Math.max(parseInt(perPage) || 20, 1), MAX_PER_PAGE);
     const safePage = Math.max(parseInt(page) || 1, 1);
 
+    // User-scoped and heavily filtered queries should read fresh data.
+    // Cache is kept only for broad listing pages to reduce stale UX after ticket creation.
+    const shouldUseCache = !(
+      filters.user_id
+      || filters.assigned_technician_id !== undefined
+      || filters.from
+      || filters.to
+      || filters.search
+    );
+
     const listCacheKey = this.buildKey('tickets:list', {
       page: safePage,
       perPage: safePerPage,
       ...filters,
     });
 
-    const cached = await cache.get(listCacheKey);
-    if (cached) {
-      return cached;
+    if (shouldUseCache) {
+      const cached = await cache.get(listCacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
     const offset = (safePage - 1) * safePerPage;
@@ -108,7 +120,9 @@ class TicketService {
       pagination: { page: safePage, perPage: safePerPage, total, totalPages: Math.ceil(total / safePerPage) }
     };
 
-    await cache.set(listCacheKey, payload, 60);
+    if (shouldUseCache) {
+      await cache.set(listCacheKey, payload, 60);
+    }
 
     return payload;
   }
