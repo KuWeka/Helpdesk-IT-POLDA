@@ -32,6 +32,7 @@ const ticketListLimiter = rateLimit({
 
 const TicketService = require('../services/TicketService');
 const { invalidateAllDashboardCaches } = require('../utils/dashboardCache');
+const { normalizeRole } = require('../config/roles');
 
 // Get all tickets
 router.get('/', auth, ticketListLimiter, validateQuery(ticketSchemas.list), asyncHandler(async (req, res) => {
@@ -45,7 +46,7 @@ router.get('/', auth, ticketListLimiter, validateQuery(ticketSchemas.list), asyn
   if (!dbUser) {
     return res.status(401).json({ success: false, message: 'Akses ditolak. Akun tidak aktif atau tidak ditemukan.' });
   }
-  const actualRole = dbUser.role;
+  const actualRole = normalizeRole(dbUser.role);
 
   // Role-based filtering
   let effectiveUserId = user_id;

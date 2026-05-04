@@ -28,15 +28,18 @@ class TicketService {
     const safePerPage = Math.min(Math.max(parseInt(perPage) || 20, 1), MAX_PER_PAGE);
     const safePage = Math.max(parseInt(page) || 1, 1);
 
-    // User-scoped and heavily filtered queries should read fresh data.
-    // Cache is kept only for broad listing pages to reduce stale UX after ticket creation.
-    const shouldUseCache = !(
+    // Only use cache when at least one meaningful filter is present AND results
+    // are scoped (e.g. by user_id). Never cache unfiltered/global queries — they
+    // can go stale after a new ticket is created even after invalidation.
+    const hasFilter = !!(
       filters.user_id
-      || filters.assigned_technician_id !== undefined
+      || (filters.assigned_technician_id !== undefined && filters.assigned_technician_id !== null)
+      || filters.status
       || filters.from
       || filters.to
       || filters.search
     );
+    const shouldUseCache = false; // Disabled: Railway Redis SCAN may not reliably invalidate patterns
 
     const listCacheKey = this.buildKey('tickets:list', {
       page: safePage,
