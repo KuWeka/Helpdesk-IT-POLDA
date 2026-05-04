@@ -23,10 +23,12 @@ CREATE TABLE IF NOT EXISTS users (
   theme ENUM('light', 'dark', 'system') DEFAULT 'light',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE SET NULL,
   INDEX idx_users_role_is_active (role, is_active),
   INDEX idx_users_email (email),           -- fast login lookups by email
-  INDEX idx_users_username (username)      -- fast login lookups by username
+  INDEX idx_users_username (username),     -- fast login lookups by username
+  INDEX idx_users_deleted_at (deleted_at)
 );
 
 CREATE TABLE IF NOT EXISTS system_settings (
@@ -63,6 +65,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   closed_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (assigned_technician_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_status (status),

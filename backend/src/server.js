@@ -22,6 +22,7 @@ const { cache } = require('./utils/cache');
 const { metricsMiddleware } = require('./utils/metrics');
 const { warmStartupCache } = require('./utils/cacheWarmup');
 const { startAssignmentTimeoutCron } = require('./services/AssignmentTimeoutService');
+const { runMigrations } = require('../scripts/migrate');
 
 const isSwaggerEnabled = () => {
   // Swagger is NEVER available in production, regardless of env vars
@@ -354,6 +355,12 @@ if (NODE_ENV !== 'test') {
       nodeVersion: process.version
     });
     startAssignmentTimeoutCron(io);
+
+    // Run pending SQL migrations on every startup — idempotent, safe for Railway deploys
+    const pool = require('./config/db');
+    runMigrations(pool)
+      .then(() => logger.info('Database migrations applied successfully'))
+      .catch((err) => logger.error('Database migration failed', { error: err.message }));
   });
 } else {
   logger.info('Server initialized in test mode without binding network port');

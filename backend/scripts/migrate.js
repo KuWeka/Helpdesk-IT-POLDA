@@ -125,7 +125,17 @@ async function addIndexIfMissing(connection, migration) {
     return;
   }
 
-  await connection.query(migration.sql);
+  try {
+    await connection.query(migration.sql);
+  } catch (err) {
+    // Table may have been dropped (e.g. chats/messages removed in revision). Record and skip.
+    if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_DUP_KEYNAME') {
+      console.log(`- Skipping ${migration.index} (${err.code})`);
+      await recordMigration(connection, migrationId);
+      return;
+    }
+    throw err;
+  }
   await recordMigration(connection, migrationId);
   console.log(`- Applied ${migration.index} ✓`);
 }
@@ -228,6 +238,29 @@ async function main() {
 
 main().catch((error) => {
   console.error('Migration error:', error && error.message ? error.message : error);
+  process.exit(1);
+});
+
+/**
+ * Run all pending migrations using an existing mysql2 pool (for server.js startup).
+ * Idempotent — safe to call on every deploy.
+ *
+ * @param {import('mysql2/promise').Pool} pool - existing mysql2 pool from config/db
+ */
+async function runMigrations(pool) {
+  const connection = await pool.getConnection();
+  try {
+    await ensureMigrationsTable(connection);
+    for (const migration of indexMigrations) {
+      await addIndexIfMissing(connection, migration);
+    }
+    await runSqlFileMigrations(connection);
+  } finally {
+    connection.release();
+  }
+}
+
+module.exports = { runMigrations };
   if (error && error.code) {
     console.error('Error code:', error.code);
   }
