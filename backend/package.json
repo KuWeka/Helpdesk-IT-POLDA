@@ -56,7 +56,7 @@
   },
   "devDependencies": {
     "autocannon": "^8.0.0",
-    "eslint": "^8.57.0",
+    "eslint": "^10.3.0",
     "jest": "^30.3.0",
     "nodemon": "^3.1.0",
     "prettier": "^3.2.5",
