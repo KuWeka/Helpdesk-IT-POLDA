@@ -14,7 +14,7 @@ const UserService = require('../services/UserService');
 const { parseCookies, parseDurationToMs } = require('../utils/cookies');
 const { CSRF_COOKIE_NAME } = require('../middleware/csrf');
 const { normalizeRole } = require('../config/roles');
-const cache = require('../utils/cache');
+const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
 
 const ACCESS_TOKEN_COOKIE_NAME = process.env.ACCESS_TOKEN_COOKIE_NAME || 'helpdesk_access_token';

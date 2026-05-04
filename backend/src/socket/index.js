@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { parseCookies } = require('../utils/cookies');
-const cache = require('../utils/cache');
+const { cache } = require('../utils/cache');
 
 const socketHandler = (io) => {
   // Authenticate every socket connection using the JWT from the httpOnly cookie.
