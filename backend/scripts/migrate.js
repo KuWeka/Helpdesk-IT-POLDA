@@ -236,10 +236,12 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('Migration error:', error && error.message ? error.message : error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('Migration error:', error && error.message ? error.message : error);
+    process.exit(1);
+  });
+}
 
 /**
  * Run all pending migrations using an existing mysql2 pool (for server.js startup).
@@ -261,17 +263,3 @@ async function runMigrations(pool) {
 }
 
 module.exports = { runMigrations };
-  if (error && error.code) {
-    console.error('Error code:', error.code);
-  }
-  if (error && error.sqlMessage) {
-    console.error('SQL message:', error.sqlMessage);
-  }
-  if (error && error.sqlState) {
-    console.error('SQL state:', error.sqlState);
-  }
-  if (error && error.stack) {
-    console.error(error.stack);
-  }
-  process.exit(1);
-});
