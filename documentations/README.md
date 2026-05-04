@@ -4,6 +4,8 @@
 
 **Pusat Referensi Teknis, Histori Perubahan, dan Panduan Sistem**
 
+Tanggal dibuat: 2026-05-04
+
 ---
 
 ![Docs](https://img.shields.io/badge/Dokumentasi-Teknis-0078D4?style=for-the-badge&logo=readthedocs&logoColor=white)
@@ -17,13 +19,17 @@
 ## 📋 Daftar Isi
 
 - [Tentang Folder Ini](#-tentang-folder-ini)
+- [Prinsip Organisasi Dokumentasi](#-prinsip-organisasi-dokumentasi)
+- [Peta Navigasi Cepat](#-peta-navigasi-cepat)
 - [Struktur Folder](#-struktur-folder)
+- [Rincian Setiap Folder](#-rincian-setiap-folder)
 - [Panduan Baca untuk Developer Baru](#-panduan-baca-untuk-developer-baru)
 - [Referensi Sistem](#-referensi-sistem)
 - [Histori Revisi (Sesi per Sesi)](#-histori-revisi-sesi-per-sesi)
 - [Bug Report & Remediation](#-bug-report--remediation)
 - [Status Implementasi Saat Ini](#-status-implementasi-saat-ini)
 - [Aturan Sinkronisasi Dokumen](#-aturan-sinkronisasi-dokumen)
+- [Workflow Update Dokumentasi](#-workflow-update-dokumentasi)
 
 ---
 
@@ -39,6 +45,41 @@ Folder `documentations/` adalah repositori pengetahuan teknis project **Helpdesk
 
 > **Catatan Penting**: Folder `After Revisi/` adalah referensi utama kondisi implementasi paling baru. Mulailah dari sini untuk memahami state sistem saat ini.
 
+README ini berfungsi sebagai:
+
+- peta isi seluruh folder dokumentasi,
+- panduan baca untuk developer baru,
+- referensi penempatan dokumen baru,
+- titik kontrol konsistensi antara dokumen aktif, dokumen histori, dan arsip lama.
+
+---
+
+## 🧱 Prinsip Organisasi Dokumentasi
+
+Struktur folder `documentations/` sekarang dibagi berdasarkan **fungsi dokumen**, bukan sekadar urutan pengerjaan. Dengan begitu, orang yang membuka dokumentasi bisa cepat menentukan dokumen mana yang relevan untuk kebutuhannya.
+
+| Prinsip | Penjelasan |
+|---------|------------|
+| Aktif vs historis | Dokumen aktif dipisahkan dari arsip lama agar pencarian konteks lebih cepat |
+| Onboarding terpusat | Folder `00_Mulai_Di_Sini/` menjadi pintu masuk utama untuk developer baru |
+| Referensi vs histori | `01_System_Reference/` menjelaskan sistem saat ini, sedangkan `After Revisi/` mencatat bagaimana sistem berubah |
+| Analisis terpisah | Dokumen bug dan remediation ditempatkan khusus di `07_Remediation_Program/` agar tidak bercampur dengan catatan implementasi |
+| Arsip dipertahankan | `Before Revisi/` tidak dihapus karena tetap berguna untuk audit dan pembandingan keputusan |
+
+---
+
+## 🧭 Peta Navigasi Cepat
+
+| Area | Link | Kapan Dibuka |
+|------|------|--------------|
+| Onboarding | [00_Mulai_Di_Sini/README.md](00_Mulai_Di_Sini/README.md) | Saat baru masuk ke project atau butuh orientasi cepat |
+| Standar penulisan | [00_Mulai_Di_Sini/STANDAR_DOKUMENTASI.md](00_Mulai_Di_Sini/STANDAR_DOKUMENTASI.md) | Saat membuat atau memperbarui dokumen |
+| Referensi sistem aktif | [01_System_Reference/README.md](01_System_Reference/README.md) | Saat ingin memahami perilaku sistem yang berlaku sekarang |
+| Analisis bug | [07_Remediation_Program/README.md](07_Remediation_Program/README.md) | Saat menelusuri akar masalah atau bug lama |
+| Histori revisi terbaru | [After Revisi/README.md](After%20Revisi/README.md) | Saat meninjau hasil implementasi terbaru |
+| Arsip historis | [Before Revisi/README.md](Before%20Revisi/README.md) | Saat perlu pembanding kondisi lama |
+| Prompt dan brief kerja | [Promt/README.md](Promt/README.md) | Saat menelusuri workflow AI atau brief implementasi |
+
 ---
 
 ## 🗂️ Struktur Folder
@@ -46,14 +87,21 @@ Folder `documentations/` adalah repositori pengetahuan teknis project **Helpdesk
 ```
 documentations/
 │
+├── 00_Mulai_Di_Sini/            # Onboarding, standar, dan titik masuk dokumentasi
+│   ├── README.md
+│   └── STANDAR_DOKUMENTASI.md
+│
 ├── 01_System_Reference/          # Referensi sistem inti
+│   ├── README.md
 │   ├── ALUR_PEMAKAIAN.md         # Alur penggunaan per role (Satker, Subtekinfo, Padal, Teknisi)
 │   └── MENU_DAN_FITUR.md         # Daftar lengkap menu, fitur, tombol, dan interaksi per role
 │
 ├── 07_Remediation_Program/       # Analisis & perbaikan
+│   ├── README.md
 │   └── ProjectPolda_BugReport_dan_Saran.md   # Laporan bug, analisis akar masalah, saran perbaikan
 │
 ├── After Revisi/                 # Changelog implementasi per sesi (TERBARU)
+│   ├── README.md
 │   ├── SESI_1_Migrasi_Database.md
 │   ├── SESI_2_Restrukturisasi_Role_Backend.md
 │   ├── SESI_3_Hapus_Fitur_Urgensi.md
@@ -71,11 +119,107 @@ documentations/
 │   └── BELUM_DIIMPLEMENTASIKAN.md  # Fitur/saran yang belum dikerjakan
 │
 ├── Before Revisi/                # Arsip kondisi sebelum revisi (historis)
+│   ├── README.md
+│   ├── 01_System_Reference/
+│   ├── 02_API_Documentation/
+│   ├── 03_Web_UI_Transformation/
+│   ├── 04_Backend_Operational_Guides/
+│   ├── 05_Release_and_Versioning/
+│   ├── 06_Delivery_Execution_Records/
+│   ├── 07_Remediation_Program/
+│   ├── 08_AI_Prompts_and_Workflows/
+│   ├── 09_Legacy_Architecture/
+│   └── 10_Archive/
 │
 ├── Promt/                        # Brief & prompt kerja pengembangan
+│   ├── README.md
+│   ├── COPILOT_BUGFIX_TASK.md
+│   ├── COPILOT_PADAL_MEMBERS_CONNECT.md
+│   ├── COPILOT_SIDEBAR_FIX.md
+│   └── PANDUAN_REVISI_PROJECTPOLDA.md
 │
 └── README.md                     # Dokumen ini
 ```
+
+---
+
+## 🧩 Rincian Setiap Folder
+
+### 1. `00_Mulai_Di_Sini/`
+
+Area onboarding cepat. Folder ini dibuat untuk mengurangi waktu baca awal ketika orang baru masuk ke repository.
+
+| File | Fungsi |
+|------|--------|
+| [00_Mulai_Di_Sini/README.md](00_Mulai_Di_Sini/README.md) | Titik masuk paling cepat untuk memahami urutan baca dokumentasi |
+| [00_Mulai_Di_Sini/STANDAR_DOKUMENTASI.md](00_Mulai_Di_Sini/STANDAR_DOKUMENTASI.md) | Aturan minimal penulisan dan penempatan dokumen |
+
+### 2. `01_System_Reference/`
+
+Folder referensi resmi untuk memahami **cara kerja sistem yang berlaku saat ini**. Jika ada perubahan menu, flow pengguna, atau hak akses role, area ini harus ikut diperbarui.
+
+| File | Fungsi |
+|------|--------|
+| [01_System_Reference/README.md](01_System_Reference/README.md) | Indeks area referensi sistem |
+| [01_System_Reference/ALUR_PEMAKAIAN.md](01_System_Reference/ALUR_PEMAKAIAN.md) | Alur penggunaan per role dan urutan kerja utama |
+| [01_System_Reference/MENU_DAN_FITUR.md](01_System_Reference/MENU_DAN_FITUR.md) | Penjelasan menu, halaman, tombol, dan interaksi UI |
+
+### 3. `07_Remediation_Program/`
+
+Area ini fokus pada **analisis masalah**, bukan catatan implementasi harian. Gunakan folder ini saat ingin memahami bug yang pernah terjadi, akar penyebab, risiko, dan perbaikan yang disarankan.
+
+| File | Fungsi |
+|------|--------|
+| [07_Remediation_Program/README.md](07_Remediation_Program/README.md) | Indeks remediation program |
+| [07_Remediation_Program/ProjectPolda_BugReport_dan_Saran.md](07_Remediation_Program/ProjectPolda_BugReport_dan_Saran.md) | Analisis bug, error, risiko, dan saran perbaikan teknis |
+
+### 4. `After Revisi/`
+
+Ini adalah area **kondisi terbaru** sesudah rangkaian revisi. Semua dokumen sesi, changelog bugfix, backlog yang belum dikerjakan, dan catatan implementasi terbaru dipusatkan di sini.
+
+| Kelompok Dokumen | Isi |
+|------------------|-----|
+| Dokumen sesi | `SESI_1` sampai `SESI_11` berisi histori kerja terurut |
+| Changelog | Ringkasan bugfix dan perubahan lintas sesi |
+| Backlog | Item yang belum diimplementasikan |
+| Laporan operasional | Catatan commit, push, smoke test, dan aktivitas verifikasi |
+
+### 5. `Before Revisi/`
+
+Folder ini berisi **arsip dokumentasi generasi sebelumnya**. Isinya tetap penting karena banyak keputusan desain, arsitektur, dan eksekusi proyek lama masih relevan untuk audit atau pembandingan.
+
+#### Breakdown subfolder `Before Revisi/`
+
+| Folder | Fokus |
+|--------|-------|
+| `01_System_Reference/` | Referensi sistem lama sebelum revisi besar |
+| `02_API_Documentation/` | Dokumentasi API lama dan ringkasan refactor |
+| `03_Web_UI_Transformation/` | Rencana transformasi UI, arsitektur, komponen, dan log eksekusi |
+| `04_Backend_Operational_Guides/` | Runbook operasional backend, SLO/SLI, governance, security |
+| `05_Release_and_Versioning/` | Changelog, versioning, dan fitur release sebelumnya |
+| `06_Delivery_Execution_Records/` | Rekaman eksekusi phase, UAT, kickoff, dan delivery log |
+| `07_Remediation_Program/` | Program remediasi versi sebelumnya |
+| `08_AI_Prompts_and_Workflows/` | Prompt AI dan workflow historis |
+| `09_Legacy_Architecture/` | Arsip arsitektur lama |
+| `10_Archive/` | Arsip hasil fase dan ringkasan pelaksanaan lama |
+
+#### Kapan membuka `Before Revisi/`
+
+- Saat ingin membandingkan arsitektur lama dengan hasil revisi terbaru.
+- Saat butuh jejak keputusan sebelum perubahan besar diterapkan.
+- Saat melakukan audit dokumentasi atau menelusuri asal-usul sebuah fitur.
+
+### 6. `Promt/`
+
+Folder ini menyimpan brief kerja, prompt, dan panduan teknis yang dipakai selama proses pengembangan. Nama folder dipertahankan seperti struktur yang sudah ada agar kompatibel dengan referensi lama.
+
+| File | Fungsi |
+|------|--------|
+| [Promt/README.md](Promt/README.md) | Indeks area prompt dan brief kerja |
+| [Promt/COPILOT_BUGFIX_TASK.md](Promt/COPILOT_BUGFIX_TASK.md) | Prompt bugfix lintas area |
+| [Promt/COPILOT_PADAL_MEMBERS_CONNECT.md](Promt/COPILOT_PADAL_MEMBERS_CONNECT.md) | Prompt fitur relasi Padal dan anggota |
+| [Promt/COPILOT_SIDEBAR_FIX.md](Promt/COPILOT_SIDEBAR_FIX.md) | Prompt perbaikan navigasi/sidebar |
+| [Promt/PANDUAN_REVISI_PROJECTPOLDA.md](Promt/PANDUAN_REVISI_PROJECTPOLDA.md) | Panduan revisi teknis yang lebih menyeluruh |
 
 ---
 
@@ -87,29 +231,32 @@ Ikuti urutan berikut untuk membangun konteks secara efisien:
 
 | # | Dokumen | Tujuan |
 |---|---------|--------|
-| 1 | [01_System_Reference/ALUR_PEMAKAIAN.md](01_System_Reference/ALUR_PEMAKAIAN.md) | Pahami alur kerja sistem dari sudut pandang setiap role |
-| 2 | [01_System_Reference/MENU_DAN_FITUR.md](01_System_Reference/MENU_DAN_FITUR.md) | Daftar lengkap semua menu, fitur, tombol, dan interaksi di UI |
+| 1 | [00_Mulai_Di_Sini/README.md](00_Mulai_Di_Sini/README.md) | Dapatkan peta dokumentasi dan urutan baca paling efisien |
+| 2 | [01_System_Reference/ALUR_PEMAKAIAN.md](01_System_Reference/ALUR_PEMAKAIAN.md) | Pahami alur kerja sistem dari sudut pandang setiap role |
+| 3 | [01_System_Reference/MENU_DAN_FITUR.md](01_System_Reference/MENU_DAN_FITUR.md) | Daftar lengkap semua menu, fitur, tombol, dan interaksi di UI |
 
 ### Tahap 2 — Pahami Kondisi Terkini
 
 | # | Dokumen | Tujuan |
 |---|---------|--------|
-| 3 | [After Revisi/CHANGELOG_BUGFIX.md](After%20Revisi/CHANGELOG_BUGFIX.md) | Lihat semua bug yang sudah diperbaiki |
-| 4 | [After Revisi/SESI_10_Restrukturisasi_Frontend_Navigasi.md](After%20Revisi/SESI_10_Restrukturisasi_Frontend_Navigasi.md) | Perubahan terbesar sebelum sesi terakhir |
-| 5 | [After Revisi/SESI_11_Commit_Push_dan_SmokeTest/LAPORAN_PELAKSANAAN.md](After%20Revisi/SESI_11_Commit_Push_dan_SmokeTest/LAPORAN_PELAKSANAAN.md) | Laporan sesi revisi terbaru |
+| 4 | [After Revisi/README.md](After%20Revisi/README.md) | Masuk ke ringkasan area revisi terbaru |
+| 5 | [After Revisi/CHANGELOG_BUGFIX.md](After%20Revisi/CHANGELOG_BUGFIX.md) | Lihat semua bug yang sudah diperbaiki |
+| 6 | [After Revisi/SESI_10_Restrukturisasi_Frontend_Navigasi.md](After%20Revisi/SESI_10_Restrukturisasi_Frontend_Navigasi.md) | Perubahan terbesar sebelum sesi terakhir |
+| 7 | [After Revisi/SESI_11_Commit_Push_dan_SmokeTest/LAPORAN_PELAKSANAAN.md](After%20Revisi/SESI_11_Commit_Push_dan_SmokeTest/LAPORAN_PELAKSANAAN.md) | Laporan sesi revisi terbaru |
 
 ### Tahap 3 — Konteks Masalah & Perbaikan
 
 | # | Dokumen | Tujuan |
 |---|---------|--------|
-| 6 | [07_Remediation_Program/ProjectPolda_BugReport_dan_Saran.md](07_Remediation_Program/ProjectPolda_BugReport_dan_Saran.md) | Analisis mendalam bug, akar masalah, dan saran perbaikan |
-| 7 | [After Revisi/BELUM_DIIMPLEMENTASIKAN.md](After%20Revisi/BELUM_DIIMPLEMENTASIKAN.md) | Fitur/saran yang belum dikerjakan — kandidat sprint berikutnya |
+| 8 | [07_Remediation_Program/README.md](07_Remediation_Program/README.md) | Masuk ke area remediation secara terstruktur |
+| 9 | [07_Remediation_Program/ProjectPolda_BugReport_dan_Saran.md](07_Remediation_Program/ProjectPolda_BugReport_dan_Saran.md) | Analisis mendalam bug, akar masalah, dan saran perbaikan |
+| 10 | [After Revisi/BELUM_DIIMPLEMENTASIKAN.md](After%20Revisi/BELUM_DIIMPLEMENTASIKAN.md) | Fitur/saran yang belum dikerjakan — kandidat sprint berikutnya |
 
 ### Tahap 4 — Perbandingan Historis (Jika Diperlukan)
 
 | # | Dokumen | Tujuan |
 |---|---------|--------|
-| 8 | `Before Revisi/` | Kondisi sistem sebelum rangkaian revisi — hanya untuk referensi historis |
+| 11 | [Before Revisi/README.md](Before%20Revisi/README.md) | Kondisi sistem sebelum rangkaian revisi — hanya untuk referensi historis |
 
 ---
 
@@ -284,6 +431,29 @@ Aturan yang harus diikuti saat melakukan perubahan pada sistem:
 4. **Fitur yang baru direncanakan tapi belum dikerjakan** → tambahkan ke `BELUM_DIIMPLEMENTASIKAN.md`
 5. **Perubahan alur atau menu di UI** → update `01_System_Reference/` yang relevan
 6. **Jangan modifikasi folder `Before Revisi/`** — itu arsip historis read-only
+
+---
+
+## 🔁 Workflow Update Dokumentasi
+
+Gunakan alur berikut setiap kali ada perubahan pada sistem:
+
+1. Perbarui dokumen referensi jika perubahan memengaruhi perilaku sistem saat ini.
+2. Tambahkan catatan sesi di `After Revisi/` jika perubahan adalah hasil pekerjaan baru.
+3. Sinkronkan bugfix ke changelog jika perubahan memperbaiki defect atau risiko lama.
+4. Tambahkan backlog ke dokumen item belum diimplementasikan jika ada keputusan menunda pekerjaan.
+5. Pastikan file markdown baru memiliki metadata `Tanggal dibuat: YYYY-MM-DD`.
+
+### Ringkasan Penempatan Dokumen Baru
+
+| Jika dokumen berisi... | Simpan di... |
+|------------------------|--------------|
+| Cara kerja sistem sekarang | `01_System_Reference/` |
+| Catatan sesi implementasi | `After Revisi/` |
+| Analisis bug dan akar masalah | `07_Remediation_Program/` |
+| Standar atau onboarding | `00_Mulai_Di_Sini/` |
+| Arsip lama | `Before Revisi/` |
+| Prompt dan brief kerja | `Promt/` |
 
 ---
 

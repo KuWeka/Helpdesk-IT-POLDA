@@ -5,6 +5,8 @@
 **Sistem Manajemen Tiket Layanan IT Internal**
 *Bidang Teknologi Informasi — Kepolisian Daerah Kalimantan Selatan*
 
+Tanggal dibuat: 2026-05-04
+
 ---
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
@@ -31,6 +33,7 @@
 - [Arsitektur Sistem](#-arsitektur-sistem)
 - [Tech Stack](#-tech-stack)
 - [Struktur Project](#-struktur-project)
+- [Struktur Dokumentasi](#-struktur-dokumentasi)
 - [Prasyarat](#-prasyarat)
 - [Instalasi](#-instalasi)
 - [Konfigurasi Environment](#-konfigurasi-environment)
@@ -429,14 +432,49 @@ projectpolda/
 │   └── docker-compose.yml
 │
 ├── documentations/
-│   ├── README.md                     # Indeks dokumentasi
-│   ├── 01_System_Reference/          # Referensi alur & menu
-│   ├── 07_Remediation_Program/       # Bug report & saran
-│   └── After Revisi/                 # Changelog sesi revisi
+│   ├── README.md                     # Indeks dokumentasi utama
+│   ├── 00_Mulai_Di_Sini/             # Onboarding dan standar dokumentasi
+│   ├── 01_System_Reference/          # Referensi alur, menu, dan fitur sistem aktif
+│   ├── 07_Remediation_Program/       # Bug report, remediation, dan analisis teknis
+│   ├── After Revisi/                 # Changelog sesi revisi terbaru
+│   ├── Before Revisi/                # Arsip dokumentasi historis sebelum revisi
+│   └── Promt/                        # Prompt kerja, brief, dan panduan revisi
 │
 ├── package.json                      # Root monorepo scripts
 └── README.md                         # Dokumen ini
 ```
+
+---
+
+## 🗃️ Struktur Dokumentasi
+
+Folder [`documentations/`](documentations/) sekarang disusun sebagai pusat pengetahuan proyek, bukan sekadar kumpulan file catatan. Area ini dipisahkan menjadi dokumen aktif, histori revisi, remediation, onboarding, dan arsip historis.
+
+### Area Utama
+
+| Area | Fungsi |
+|------|--------|
+| [`documentations/README.md`](documentations/README.md) | Peta utama dokumentasi dan urutan baca |
+| [`documentations/00_Mulai_Di_Sini/`](documentations/00_Mulai_Di_Sini/) | Titik masuk developer baru dan standar dokumentasi |
+| [`documentations/01_System_Reference/`](documentations/01_System_Reference/) | Referensi sistem aktif: alur pemakaian, menu, dan fitur |
+| [`documentations/07_Remediation_Program/`](documentations/07_Remediation_Program/) | Analisis bug, akar masalah, dan saran perbaikan |
+| [`documentations/After Revisi/`](documentations/After%20Revisi/) | Catatan implementasi terbaru per sesi revisi |
+| [`documentations/Before Revisi/`](documentations/Before%20Revisi/) | Arsip dokumentasi generasi sebelumnya |
+| [`documentations/Promt/`](documentations/Promt/) | Prompt kerja, brief AI, dan panduan revisi teknis |
+
+### Rekomendasi Urutan Baca
+
+1. Mulai dari [`documentations/README.md`](documentations/README.md) untuk melihat peta dokumentasi secara menyeluruh.
+2. Lanjut ke [`documentations/00_Mulai_Di_Sini/README.md`](documentations/00_Mulai_Di_Sini/README.md) untuk onboarding cepat.
+3. Baca [`documentations/01_System_Reference/`](documentations/01_System_Reference/) untuk memahami perilaku sistem yang berlaku saat ini.
+4. Gunakan [`documentations/After Revisi/`](documentations/After%20Revisi/) untuk melihat histori implementasi terbaru.
+5. Buka [`documentations/07_Remediation_Program/`](documentations/07_Remediation_Program/) saat menelusuri bug, risiko, atau akar masalah teknis.
+
+### Catatan Penting
+
+- Semua file markdown di area dokumentasi sekarang memiliki metadata `Tanggal dibuat`.
+- Folder `After Revisi/` adalah referensi utama kondisi terbaru sistem.
+- Folder `Before Revisi/` dipertahankan untuk audit dan pembandingan historis, bukan sebagai sumber kebenaran kondisi sistem saat ini.
 
 ---
 
@@ -964,9 +1002,20 @@ Dokumentasi teknis lengkap tersimpan di folder [`documentations/`](documentation
 
 | Folder | Isi |
 |--------|-----|
-| [`01_System_Reference/`](documentations/01_System_Reference/) | Alur pemakaian sistem, menu dan fitur lengkap |
-| [`07_Remediation_Program/`](documentations/07_Remediation_Program/) | Bug report, saran perbaikan |
-| [`After Revisi/`](documentations/After%20Revisi/) | Changelog implementasi per sesi revisi |
+| [`README.md`](documentations/README.md) | Indeks utama dokumentasi proyek |
+| [`00_Mulai_Di_Sini/`](documentations/00_Mulai_Di_Sini/) | Onboarding cepat dan standar dokumentasi |
+| [`01_System_Reference/`](documentations/01_System_Reference/) | Alur pemakaian sistem, menu, dan fitur lengkap |
+| [`07_Remediation_Program/`](documentations/07_Remediation_Program/) | Bug report, analisis masalah, dan saran perbaikan |
+| [`After Revisi/`](documentations/After%20Revisi/) | Changelog implementasi per sesi revisi terbaru |
+| [`Before Revisi/`](documentations/Before%20Revisi/) | Arsip dokumentasi lama untuk pembandingan |
+| [`Promt/`](documentations/Promt/) | Prompt kerja dan panduan revisi teknis |
+
+### Fungsi Folder Dokumentasi
+
+- Menjadi sumber referensi teknis untuk developer dan reviewer.
+- Menyimpan histori perubahan sistem secara kronologis.
+- Merekam bug, remediation, dan keputusan teknis penting.
+- Menyediakan bahan onboarding untuk anggota tim baru.
 
 ### Sesi Revisi
 
