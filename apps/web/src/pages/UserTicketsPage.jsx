@@ -81,6 +81,7 @@ export default function UserTicketsPage() {
           order,
           from: dateFrom || undefined,
           to: dateTo || undefined,
+          _t: Date.now(),
         }
       });
 
@@ -104,6 +105,12 @@ export default function UserTicketsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [currentUser?.id, searchTerm, statusFilter, sortOrder, dateFrom, dateTo, perPage]);
+
+  // Immediately show loading skeleton when navigating to this page, preventing
+  // a brief flash of the empty state before the fetch completes.
+  useEffect(() => {
+    setIsLoading(true);
+  }, [location.key]);
 
   useEffect(() => {
     fetchTickets();
