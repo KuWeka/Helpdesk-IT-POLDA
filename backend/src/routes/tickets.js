@@ -249,13 +249,39 @@ router.post('/', auth, role('Satker'), ticketCreateLimiter, validate(ticketSchem
 
     // Check inside the transaction (with FOR UPDATE lock) to prevent race condition:
     // without this, two concurrent requests could both pass the check and both insert.
-    const [[unrated]] = await conn.query(
-      `SELECT t.id, t.ticket_number FROM tickets t
-       LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-       WHERE t.user_id = ? AND t.status = 'Selesai' AND t.deleted_at IS NULL AND tr.id IS NULL
-       LIMIT 1 FOR UPDATE`,
-      [req.user.id]
-    );
+    let unrated = null;
+    try {
+      [[unrated]] = await conn.query(
+        `SELECT t.id, t.ticket_number FROM tickets t
+         LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
+         WHERE t.user_id = ? AND t.status = 'Selesai' AND t.deleted_at IS NULL AND tr.id IS NULL
+         LIMIT 1 FOR UPDATE`,
+        [req.user.id]
+      );
+    } catch (ratingErr) {
+      if (ratingErr.code === 'ER_NO_SUCH_TABLE') {
+        // Table not yet created — create it now and skip the check (no ratings yet)
+        await conn.query(`
+          CREATE TABLE IF NOT EXISTS ticket_ratings (
+            id         VARCHAR(36)  PRIMARY KEY,
+            ticket_id  VARCHAR(36)  NOT NULL,
+            satker_id  VARCHAR(36)  NOT NULL,
+            padal_id   VARCHAR(36)  NOT NULL,
+            rating     TINYINT      NOT NULL,
+            created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+            FOREIGN KEY (satker_id) REFERENCES users(id)   ON DELETE CASCADE,
+            FOREIGN KEY (padal_id)  REFERENCES users(id)   ON DELETE CASCADE,
+            INDEX idx_rating_ticket (ticket_id),
+            INDEX idx_rating_satker (satker_id),
+            INDEX idx_rating_padal  (padal_id)
+          )
+        `);
+        unrated = null; // no ratings can exist yet
+      } else {
+        throw ratingErr;
+      }
+    }
     if (unrated) {
       await conn.rollback();
       conn.release();
