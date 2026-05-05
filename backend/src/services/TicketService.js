@@ -3,6 +3,22 @@ const pool = require('../config/db');
 const { cache } = require('../utils/cache');
 
 class TicketService {
+  static _hasPadalIdColumn = null;
+
+  static async hasPadalIdColumn() {
+    if (typeof this._hasPadalIdColumn === 'boolean') return this._hasPadalIdColumn;
+    const [rows] = await pool.query(
+      `SELECT 1
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'tickets'
+         AND COLUMN_NAME = 'padal_id'
+       LIMIT 1`
+    );
+    this._hasPadalIdColumn = rows.length > 0;
+    return this._hasPadalIdColumn;
+  }
+
   static buildKey(prefix, payload = {}) {
     const serialized = Object.entries(payload)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -56,13 +72,19 @@ class TicketService {
 
     const offset = (safePage - 1) * safePerPage;
 
-    let query = `
-      SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name
+    const hasPadalId = await this.hasPadalIdColumn();
+    const padalRef = hasPadalId ? 't.padal_id' : 't.assigned_technician_id';
+    const baseFrom = `
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-      LEFT JOIN users padal ON t.padal_id = padal.id
+      LEFT JOIN users padal ON ${padalRef} = padal.id
       WHERE t.deleted_at IS NULL
+    `;
+
+    let query = `
+      SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name
+      ${baseFrom}
     `;
     const params = [];
 
@@ -103,7 +125,10 @@ class TicketService {
     }
 
     // Get total count
-    const countQuery = query.replace('SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name\n      FROM tickets t', 'SELECT COUNT(*) as total FROM tickets t');
+    const countQuery = `
+      SELECT COUNT(*) as total
+      ${baseFrom}
+    `;
     const [countResult] = await pool.query(countQuery, params);
     const total = countResult[0].total;
 
@@ -137,12 +162,16 @@ class TicketService {
     const cacheKey = `ticket:${id}`;
     let ticket = await cache.get(cacheKey);
     if (ticket) return ticket;
+
+    const hasPadalId = await this.hasPadalIdColumn();
+    const padalRef = hasPadalId ? 't.padal_id' : 't.assigned_technician_id';
+
     const [rows] = await pool.query(`
       SELECT t.*, u.name as reporter_name, tech.name as technician_name, padal.name as padal_name
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-      LEFT JOIN users padal ON t.padal_id = padal.id
+      LEFT JOIN users padal ON ${padalRef} = padal.id
       WHERE t.id = ? AND t.deleted_at IS NULL
     `, [id]);
     ticket = rows[0] || null;

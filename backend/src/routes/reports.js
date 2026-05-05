@@ -8,6 +8,26 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { ApiResponse } = require('../utils/apiResponse');
 const pool = require('../config/db');
 
+let HAS_PADAL_ID_COLUMN = null;
+
+async function resolvePadalTicketColumn() {
+  if (typeof HAS_PADAL_ID_COLUMN === 'boolean') {
+    return HAS_PADAL_ID_COLUMN ? 't.padal_id' : 't.assigned_technician_id';
+  }
+
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tickets'
+       AND COLUMN_NAME = 'padal_id'
+     LIMIT 1`
+  );
+
+  HAS_PADAL_ID_COLUMN = rows.length > 0;
+  return HAS_PADAL_ID_COLUMN ? 't.padal_id' : 't.assigned_technician_id';
+}
+
 // Rate limiter: max 20 report exports per user per hour (heavy DB + file generation)
 const reportExportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -37,6 +57,7 @@ function padStart2(n) {
 
 async function reportSatker(userId, month, year) {
   const prefix = `${year}-${padStart2(month)}`;
+  const padalRef = await resolvePadalTicketColumn();
 
   const [summary] = await pool.query(`
     SELECT
@@ -57,7 +78,7 @@ async function reportSatker(userId, month, year) {
            u.name AS nama_padal,
            tr.rating
     FROM tickets t
-    LEFT JOIN users u ON u.id = t.padal_id
+    LEFT JOIN users u ON u.id = ${padalRef}
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
     WHERE t.user_id = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
     ORDER BY t.created_at DESC
@@ -68,6 +89,7 @@ async function reportSatker(userId, month, year) {
 
 async function reportPadal(userId, month, year) {
   const prefix = `${year}-${padStart2(month)}`;
+  const padalRef = await resolvePadalTicketColumn();
 
   const [summary] = await pool.query(`
     SELECT
@@ -77,7 +99,7 @@ async function reportPadal(userId, month, year) {
       ROUND(AVG(tr.rating), 2) AS rata_rating
     FROM tickets t
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.padal_id = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE ${padalRef} = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
   `, [userId, prefix]);
 
   const [tickets] = await pool.query(`
@@ -89,7 +111,7 @@ async function reportPadal(userId, month, year) {
     FROM tickets t
     LEFT JOIN users u ON u.id = t.user_id
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.padal_id = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    WHERE ${padalRef} = ? AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
     ORDER BY t.created_at DESC
   `, [userId, prefix]);
 
@@ -98,6 +120,7 @@ async function reportPadal(userId, month, year) {
 
 async function reportSubtekinfo(month, year) {
   const prefix = `${year}-${padStart2(month)}`;
+  const padalRef = await resolvePadalTicketColumn();
 
   const [summary] = await pool.query(`
     SELECT
@@ -118,10 +141,10 @@ async function reportSubtekinfo(month, year) {
            SUM(t.status = 'Selesai') AS selesai,
            ROUND(AVG(tr.rating), 2) AS rata_rating
     FROM tickets t
-    JOIN users u ON u.id = t.padal_id
+    JOIN users u ON u.id = ${padalRef}
     LEFT JOIN ticket_ratings tr ON tr.ticket_id = t.id
-    WHERE t.padal_id IS NOT NULL AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
-    GROUP BY t.padal_id, u.name
+    WHERE ${padalRef} IS NOT NULL AND t.deleted_at IS NULL AND DATE_FORMAT(t.created_at, '%Y-%m') = ?
+    GROUP BY ${padalRef}, u.name
     ORDER BY selesai DESC
   `, [prefix]);
 
