@@ -36,6 +36,7 @@ import AssignPadalModal from '@/components/modals/AssignPadalModal.jsx';
 import RejectTicketModal from '@/components/modals/RejectTicketModal.jsx';
 
 const extractItems = (payload) => {
+  if (Array.isArray(payload?.data?.tickets)) return payload.data.tickets;
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload)) return payload;
@@ -73,20 +74,12 @@ export default function AllTicketsPage() {
   const fetchTickets = async () => {
     setIsLoading(true);
     try {
-      let filterStr = `id != ""`;
-      
-      if (statusFilter !== 'all') filterStr += ` && status = "${statusFilter}"`;
-      if (techFilter !== 'all') filterStr += ` && assigned_technician_id = "${techFilter}"`;
-      if (searchTerm) filterStr += ` && (title ~ "${searchTerm}" || ticket_number ~ "${searchTerm}")`;
-      if (dateFrom) filterStr += ` && created >= "${dateFrom} 00:00:00"`;
-      if (dateTo) filterStr += ` && created <= "${dateTo} 23:59:59"`;
-
       const { data } = await api.get('/tickets', {
         params: {
           page: 1,
           perPage: 50,
           status: statusFilter !== 'all' ? statusFilter : undefined,
-          technician_id: techFilter !== 'all' ? techFilter : undefined,
+          assigned_technician_id: techFilter !== 'all' ? techFilter : undefined,
           search: searchTerm || undefined,
           from: dateFrom || undefined,
           to: dateTo || undefined
@@ -96,6 +89,7 @@ export default function AllTicketsPage() {
       setTickets(extractItems(data));
     } catch (err) {
       console.error('Error fetching tickets:', err);
+      toast.error(t('adminTickets.loadFailed', 'Gagal memuat data tiket'));
     } finally {
       setIsLoading(false);
     }

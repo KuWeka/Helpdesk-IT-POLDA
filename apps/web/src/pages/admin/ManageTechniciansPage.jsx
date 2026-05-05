@@ -81,8 +81,31 @@ export default function ManageTechniciansPage() {
     setIsLoading(true);
     try {
       if (activeTab === 'Padal') {
-        const { data } = await api.get('/technicians');
-        setUsers(extractTechnicians(data));
+        try {
+          const { data } = await api.get('/technicians');
+          setUsers(extractTechnicians(data));
+        } catch (_) {
+          // Fallback ke endpoint users agar daftar Padal tetap tampil meski
+          // endpoint agregasi /technicians gagal karena ketergantungan tabel tambahan.
+          const { data } = await api.get('/users', {
+            params: {
+              role: 'Padal',
+              is_active: true,
+              sort: 'name',
+              order: 'asc',
+              perPage: 100,
+            }
+          });
+          const fallbackUsers = extractUsers(data).map((user) => ({
+            ...user,
+            member_count: 0,
+            total_tickets_selesai: 0,
+            avg_rating: null,
+            total_ratings: 0,
+            is_shift_active: false,
+          }));
+          setUsers(fallbackUsers);
+        }
       } else {
         const { data } = await api.get('/users', {
           params: {
@@ -96,7 +119,11 @@ export default function ManageTechniciansPage() {
         setUsers(extractUsers(data));
       }
     } catch (err) {
-      toast.error(t('manageTechs.loadFailed', 'Failed to load technicians'));
+      toast.error(
+        activeTab === 'Padal'
+          ? t('manageTechs.loadPadalFailed', 'Gagal memuat data padal')
+          : t('manageTechs.loadFailed', 'Gagal memuat data teknisi')
+      );
     } finally {
       setIsLoading(false);
     }
@@ -228,7 +255,7 @@ export default function ManageTechniciansPage() {
         </div>
         {activeTab === 'Padal' && (
           <Button onClick={() => setModalState({ isOpen: true, tech: null })} className="gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> {t('manageTechs.addTechnician', 'Add Technician')}
+            <PlusCircle className="h-4 w-4" /> {t('manageTechs.addPadal', 'Tambah Padal')}
           </Button>
         )}
       </div>

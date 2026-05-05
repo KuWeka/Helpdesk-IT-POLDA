@@ -8,6 +8,21 @@ Dokumen ini mencatat semua perbaikan bug dan implementasi saran dari `ProjectPol
 
 ## BUG FIXES
 
+### BUG-10 — Env validation gagal saat test integration
+- **File**: `backend/tests/setup.js`
+- **Perubahan**: Nilai `JWT_SECRET` pada setup test diperpanjang agar memenuhi minimum 32 karakter
+- **Status**: ✅ Selesai
+
+### BUG-11 — Unit test TicketService tidak sinkron dengan strategi cache terbaru
+- **File**: `backend/tests/services/ticketService.test.js`
+- **Perubahan**: Dua test pada `getTickets` diperbarui agar sesuai behavior `shouldUseCache = false` (tidak mengandalkan cache hit/set)
+- **Status**: ✅ Selesai
+
+### BUG-12 — ESLint frontend membaca file artifact `.tmp-build-check`
+- **File**: `apps/web/eslint.config.mjs`
+- **Perubahan**: Tambah `.tmp-build-check/**` pada `ignores` agar lint hanya memproses source yang relevan
+- **Status**: ✅ Selesai
+
 ### BUG-01 — Dashboard 403 Forbidden (role Admin)
 - **File**: `backend/src/routes/dashboard.js`
 - **Perubahan**: `role('Admin')` → `role('Subtekinfo')` pada route `GET /admin-summary` dan `GET /stats`

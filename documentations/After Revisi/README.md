@@ -14,7 +14,11 @@ Folder ini adalah arsip implementasi terbaru setelah rangkaian revisi ProjectPol
 
 ## Dokumen Sesi
 
-Sesi implementasi disusun kronologis dari `SESI_1` sampai `SESI_11`.
+Sesi implementasi disusun kronologis dari `SESI_1` sampai `SESI_12`.
+
+| Dokumen | Ringkasan | Tanggal |
+|---------|-----------|---------|
+| [SESI_12_Perbaikan_Test_dan_Lint.md](SESI_12_Perbaikan_Test_dan_Lint.md) | Perbaikan test backend dan konfigurasi lint frontend | 2026-05-04 |
 
 ## Aturan Update
 
