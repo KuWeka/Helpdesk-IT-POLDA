@@ -9,6 +9,7 @@ const { ApiResponse } = require('../utils/apiResponse');
 const pool = require('../config/db');
 
 let HAS_PADAL_ID_COLUMN = null;
+let HAS_REJECTION_REASON_COLUMN = null;
 
 async function resolvePadalTicketColumn() {
   if (typeof HAS_PADAL_ID_COLUMN === 'boolean') {
@@ -26,6 +27,24 @@ async function resolvePadalTicketColumn() {
 
   HAS_PADAL_ID_COLUMN = rows.length > 0;
   return HAS_PADAL_ID_COLUMN ? 't.padal_id' : 't.assigned_technician_id';
+}
+
+async function hasRejectionReasonColumn() {
+  if (typeof HAS_REJECTION_REASON_COLUMN === 'boolean') {
+    return HAS_REJECTION_REASON_COLUMN;
+  }
+
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tickets'
+       AND COLUMN_NAME = 'rejection_reason'
+     LIMIT 1`
+  );
+
+  HAS_REJECTION_REASON_COLUMN = rows.length > 0;
+  return HAS_REJECTION_REASON_COLUMN;
 }
 
 // Rate limiter: max 20 report exports per user per hour (heavy DB + file generation)
@@ -121,6 +140,8 @@ async function reportPadal(userId, month, year) {
 async function reportSubtekinfo(month, year) {
   const prefix = `${year}-${padStart2(month)}`;
   const padalRef = await resolvePadalTicketColumn();
+  const hasRejectionReason = await hasRejectionReasonColumn();
+  const rejectionReasonExpr = hasRejectionReason ? 't.rejection_reason' : 'NULL';
 
   const [summary] = await pool.query(`
     SELECT
@@ -149,7 +170,7 @@ async function reportSubtekinfo(month, year) {
   `, [prefix]);
 
   const [ditolak] = await pool.query(`
-    SELECT t.ticket_number, t.title, t.rejection_reason,
+    SELECT t.ticket_number, t.title, ${rejectionReasonExpr} AS rejection_reason,
            u.name AS nama_satker,
            DATE_FORMAT(t.updated_at, '%d/%m/%Y') AS tanggal_tolak
     FROM tickets t
