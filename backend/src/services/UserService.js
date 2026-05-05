@@ -15,10 +15,9 @@ class UserService {
     switch (role) {
       case 'Subtekinfo':
         return 'Admin';
-      case 'Padal':
-        return 'Teknisi';
       case 'Satker':
         return 'User';
+      case 'Padal':
       case 'Teknisi':
       default:
         return role;

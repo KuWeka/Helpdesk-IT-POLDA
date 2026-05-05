@@ -124,7 +124,7 @@ export default function ManageTechniciansPage() {
             perPage: 100,
           }
         });
-        setUsers(extractUsers(data));
+        setUsers(extractUsers(data).filter((item) => item.role === ROLES.TEKNISI));
       }
     } catch (err) {
       toast.error(

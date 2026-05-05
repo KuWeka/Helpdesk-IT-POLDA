@@ -10,11 +10,26 @@ const { validateEmail, validateInputLength, validatePasswordStrength, sanitizeIn
 const { invalidateAllDashboardCaches } = require('../utils/dashboardCache');
 const { ApiResponse } = require('../utils/apiResponse');
 
+async function ensurePadalMembersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS padal_members (
+      id VARCHAR(36) PRIMARY KEY,
+      padal_id VARCHAR(36) NOT NULL,
+      teknisi_id VARCHAR(36) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_padal_member (teknisi_id),
+      KEY idx_pm_padal (padal_id),
+      KEY idx_pm_teknisi (teknisi_id)
+    )
+  `);
+}
+
 /**
  * GET /api/technicians
  * Get all technicians with their settings
  */
 router.get('/', auth, role('Subtekinfo'), asyncHandler(async (req, res) => {
+  await ensurePadalMembersTable();
   const [rows] = await pool.query(`
     SELECT u.id, u.name, u.email, u.phone, u.role, u.is_active, u.created_at,
       COUNT(DISTINCT pm.id) AS member_count,
