@@ -8,6 +8,8 @@ const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
+const TicketService = require('../services/TicketService');
+const { normalizeRole } = require('../config/roles');
 const {
   validateFileType,
   validateFileSize,
@@ -73,9 +75,11 @@ const upload = multer({
 router.post('/ticket/:ticketId', auth, uploadLimiter, upload.array('files', 5), asyncHandler(async (req, res) => {
   const { ticketId } = req.params;
   const files = req.files;
+  const hasPadalIdCol = await TicketService.hasPadalIdColumn();
+  const padalCol = hasPadalIdCol ? 'padal_id' : 'assigned_technician_id';
   
   // Check if ticket exists AND verify requester is authorized
-  const [[ticket]] = await pool.query('SELECT id, user_id, padal_id FROM tickets WHERE id = ? AND deleted_at IS NULL', [ticketId]);
+  const [[ticket]] = await pool.query(`SELECT id, user_id, ${padalCol} AS effective_padal_id FROM tickets WHERE id = ? AND deleted_at IS NULL`, [ticketId]);
   if (!ticket) {
     if (files) files.forEach(f => fs.unlink(f.path, () => {}));
     return res.status(404).json({ success: false, message: 'Ticket tidak ditemukan' });
@@ -87,7 +91,7 @@ router.post('/ticket/:ticketId', auth, uploadLimiter, upload.array('files', 5), 
     if (files) files.forEach(f => fs.unlink(f.path, () => {}));
     return res.status(401).json({ success: false, message: 'Akses ditolak.' });
   }
-  const actualRole = dbUser.role;
+  const actualRole = normalizeRole(dbUser.role);
 
   // Satker hanya bisa upload ke tiket miliknya
   if (actualRole === 'Satker' && ticket.user_id !== req.user.id) {
@@ -95,7 +99,7 @@ router.post('/ticket/:ticketId', auth, uploadLimiter, upload.array('files', 5), 
     return res.status(403).json({ success: false, message: 'Forbidden' });
   }
   // Padal hanya bisa upload ke tiket yang di-assign ke mereka
-  if (actualRole === 'Padal' && ticket.padal_id !== req.user.id) {
+  if (actualRole === 'Padal' && ticket.effective_padal_id !== req.user.id) {
     if (files) files.forEach(f => fs.unlink(f.path, () => {}));
     return res.status(403).json({ success: false, message: 'Forbidden' });
   }
@@ -201,19 +205,21 @@ router.post('/ticket/:ticketId', auth, uploadLimiter, upload.array('files', 5), 
  */
 router.get('/ticket/:ticketId', auth, asyncHandler(async (req, res) => {
   const { ticketId } = req.params;
+  const hasPadalIdCol = await TicketService.hasPadalIdColumn();
+  const padalCol = hasPadalIdCol ? 'padal_id' : 'assigned_technician_id';
 
   // Verify ticket exists and requester is authorized to view it
-  const [[ticket]] = await pool.query('SELECT id, user_id, padal_id FROM tickets WHERE id = ? AND deleted_at IS NULL', [ticketId]);
+  const [[ticket]] = await pool.query(`SELECT id, user_id, ${padalCol} AS effective_padal_id FROM tickets WHERE id = ? AND deleted_at IS NULL`, [ticketId]);
   if (!ticket) return res.status(404).json({ success: false, message: 'Ticket tidak ditemukan' });
 
   const [[dbUser]] = await pool.query('SELECT role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1', [req.user.id]);
   if (!dbUser) return res.status(401).json({ success: false, message: 'Akses ditolak.' });
-  const actualRole = dbUser.role;
+  const actualRole = normalizeRole(dbUser.role);
 
   if (actualRole === 'Satker' && ticket.user_id !== req.user.id) {
     return res.status(403).json({ success: false, message: 'Forbidden' });
   }
-  if (actualRole === 'Padal' && ticket.padal_id !== req.user.id) {
+  if (actualRole === 'Padal' && ticket.effective_padal_id !== req.user.id) {
     return res.status(403).json({ success: false, message: 'Forbidden' });
   }
 

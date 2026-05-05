@@ -55,11 +55,24 @@ export default function TechnicianTicketDetailPage() {
       
       setTicket(ticketData);
 
-      const { data: attachData } = await api.get(`/uploads/ticket/${ticketId}`);
-      setAttachments(Array.isArray(attachData?.attachments) ? attachData.attachments : []);
+      const [attachmentsResult, notesResult] = await Promise.allSettled([
+        api.get(`/uploads/ticket/${ticketId}`),
+        api.get(`/tickets/${ticketId}/notes`),
+      ]);
 
-      const { data: notesData } = await api.get(`/tickets/${ticketId}/notes`);
-      setNotes(notesData || []);
+      if (attachmentsResult.status === 'fulfilled') {
+        const attachData = attachmentsResult.value?.data;
+        setAttachments(Array.isArray(attachData?.attachments) ? attachData.attachments : []);
+      } else {
+        setAttachments([]);
+      }
+
+      if (notesResult.status === 'fulfilled') {
+        const notesData = notesResult.value?.data;
+        setNotes(Array.isArray(notesData) ? notesData : []);
+      } else {
+        setNotes([]);
+      }
 
     } catch (err) {
       console.error('Error fetching ticket ID:', ticketId, err.response || err);
