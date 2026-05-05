@@ -81,24 +81,27 @@ router.get('/', auth, ticketListLimiter, validateQuery(ticketSchemas.list), asyn
 // Get ticket summary for dashboards
 router.get('/summary', auth, asyncHandler(async (req, res) => {
   const { role, userId } = req.query;
+  const hasPadalIdCol = await TicketService.hasPadalIdColumn();
+  const padalCol = hasPadalIdCol ? 'padal_id' : 'assigned_technician_id';
+  const currentUserRole = normalizeRole(req.user.role);
 
   let whereClause = '';
   let params = [];
 
   // Role-based access control for summary scope
-  if (req.user.role === 'Satker') {
+  if (currentUserRole === 'Satker') {
     whereClause = 'WHERE deleted_at IS NULL AND user_id = ?';
     params = [req.user.id];
-  } else if (req.user.role === 'Padal') {
-    whereClause = 'WHERE deleted_at IS NULL AND padal_id = ?';
+  } else if (currentUserRole === 'Padal') {
+    whereClause = `WHERE deleted_at IS NULL AND ${padalCol} = ?`;
     params = [req.user.id];
-  } else if (req.user.role === 'Subtekinfo') {
+  } else if (currentUserRole === 'Subtekinfo') {
     // Subtekinfo dapat request summary dengan scope opsional
     if (role === 'satker' && userId) {
       whereClause = 'WHERE deleted_at IS NULL AND user_id = ?';
       params = [userId];
     } else if (role === 'padal' && userId) {
-      whereClause = 'WHERE deleted_at IS NULL AND padal_id = ?';
+      whereClause = `WHERE deleted_at IS NULL AND ${padalCol} = ?`;
       params = [userId];
     } else {
       whereClause = 'WHERE deleted_at IS NULL';
@@ -189,17 +192,21 @@ router.get('/pending-rating', auth, role('Satker'), asyncHandler(async (req, res
 
 // Get ticket details
 router.get('/:id', auth, asyncHandler(async (req, res) => {
+  const hasPadalIdCol = await TicketService.hasPadalIdColumn();
+  const padalRef = hasPadalIdCol ? 't.padal_id' : 't.assigned_technician_id';
+
   const [rows] = await pool.query(`
       SELECT t.*,
              u.name as reporter_name,
              u.email as reporter_email,
              u.phone as reporter_phone,
              tech.name as technician_name,
+             ${padalRef} as effective_padal_id,
              padal.name as padal_name
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users tech ON t.assigned_technician_id = tech.id
-      LEFT JOIN users padal ON t.padal_id = padal.id
+      LEFT JOIN users padal ON ${padalRef} = padal.id
       WHERE t.id = ? AND t.deleted_at IS NULL
     `, [req.params.id]);
 
@@ -213,14 +220,17 @@ router.get('/:id', auth, asyncHandler(async (req, res) => {
   if (!dbUser) {
     return res.status(401).json({ success: false, message: 'Akses ditolak. Akun tidak aktif atau tidak ditemukan.' });
   }
-  const actualRole = dbUser.role;
+  const actualRole = normalizeRole(dbUser.role);
+  const assignedPadalId = ticket.effective_padal_id || ticket.padal_id || ticket.assigned_technician_id || null;
 
   if (actualRole === 'Satker' && ticket.user_id !== req.user.id) {
     return res.status(403).json({ message: 'Forbidden' });
   }
-  if (actualRole === 'Padal' && ticket.padal_id !== req.user.id) {
+  if (actualRole === 'Padal' && assignedPadalId !== req.user.id) {
     return res.status(403).json({ message: 'Forbidden' });
   }
+
+  ticket.padal_id = assignedPadalId;
 
   ticket.expand = {
     user_id: { name: ticket.reporter_name },

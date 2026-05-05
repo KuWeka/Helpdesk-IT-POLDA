@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import socket from '@/lib/socket.js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -97,6 +98,7 @@ function loadInitial() {
 
 export default function NotificationsPage() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState(loadInitial);
 
   useEffect(() => {
@@ -133,6 +135,16 @@ export default function NotificationsPage() {
 
   const clearAll = () => setItems([]);
   const dismiss = (id) => setItems((prev) => prev.filter((n) => n.id !== id));
+
+  const getTicketDetailPath = (payload = {}) => {
+    const ticketId = payload.ticket_id || payload.id || null;
+    if (!ticketId) return null;
+
+    const role = String(currentUser?.role || '').toLowerCase();
+    if (role === 'subtekinfo' || role === 'admin') return `/subtekinfo/tickets/${ticketId}`;
+    if (role === 'padal' || role === 'teknisi') return `/padal/tickets/${ticketId}`;
+    return `/satker/tickets/${ticketId}`;
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -177,6 +189,7 @@ export default function NotificationsPage() {
                 const cfg = EVENT_CONFIG[item.type] || DEFAULT_CONFIG;
                 const Icon = cfg.icon;
                 const lines = formatPayload(item.type, item.payload);
+                const detailPath = getTicketDetailPath(item.payload);
                 return (
                   <div
                     key={item.id}
@@ -212,6 +225,19 @@ export default function NotificationsPage() {
                         </dl>
                       ) : (
                         <p className="text-xs text-muted-foreground italic">Tidak ada detail tambahan.</p>
+                      )}
+
+                      {detailPath && (
+                        <div className="mt-3">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(detailPath)}
+                          >
+                            Lihat Detail
+                          </Button>
+                        </div>
                       )}
                     </div>
 

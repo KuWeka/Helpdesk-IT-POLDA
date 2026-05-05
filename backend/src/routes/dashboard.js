@@ -6,6 +6,22 @@ const role = require('../middleware/role');
 const rateLimit = require('express-rate-limit');
 const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
+const { normalizeRole } = require('../config/roles');
+
+let HAS_TECHNICIAN_SETTINGS_TABLE = null;
+
+async function hasTechnicianSettingsTable() {
+  if (typeof HAS_TECHNICIAN_SETTINGS_TABLE === 'boolean') return HAS_TECHNICIAN_SETTINGS_TABLE;
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'technician_settings'
+     LIMIT 1`
+  );
+  HAS_TECHNICIAN_SETTINGS_TABLE = rows.length > 0;
+  return HAS_TECHNICIAN_SETTINGS_TABLE;
+}
 
 // Rate limit: 30 requests per minute per user — prevents DoS via expensive aggregate queries
 const dashboardLimiter = rateLimit({
@@ -62,7 +78,7 @@ router.get('/admin-summary', auth, role('Subtekinfo'), dashboardLimiter, async (
       pool.query(`
         SELECT count(*) as count
         FROM users
-        WHERE role = 'Teknisi' AND is_active = 1 AND deleted_at IS NULL
+        WHERE role IN ('Padal', 'Teknisi') AND is_active = 1 AND deleted_at IS NULL
       `),
       pool.query('SELECT count(*) as count FROM users WHERE deleted_at IS NULL'),
       pool.query(`
@@ -156,15 +172,19 @@ router.get('/technician-summary', auth, dashboardLimiter, async (req, res) => {
       `SELECT role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1`,
       [technicianId]
     );
-    if (!roleRow || roleRow.role !== 'Teknisi') {
+    const normalizedRole = roleRow ? normalizeRole(roleRow.role) : null;
+    if (!normalizedRole || (normalizedRole !== 'Padal' && normalizedRole !== 'Teknisi')) {
       return res.status(403).json({ success: false, message: 'Akses ditolak.' });
     }
 
-    // Ensure technician_settings row exists and defaults to on-duty (is_active = 1)
-    await pool.query(
-      `INSERT IGNORE INTO technician_settings (user_id, is_active) VALUES (?, 1)`,
-      [technicianId]
-    );
+    const hasTechnicianSettings = await hasTechnicianSettingsTable();
+    if (hasTechnicianSettings) {
+      // Ensure technician_settings row exists and defaults to on-duty (is_active = 1)
+      await pool.query(
+        `INSERT IGNORE INTO technician_settings (user_id, is_active) VALUES (?, 1)`,
+        [technicianId]
+      );
+    }
 
     const forceRefresh = req.query.refresh === 'true';
     const cacheKey = `dashboard:technician:${technicianId}:summary`;
@@ -211,18 +231,30 @@ router.get('/technician-summary', auth, dashboardLimiter, async (req, res) => {
         ORDER BY t.created_at DESC
         LIMIT 10
       `, [technicianId]),
-      pool.query(`
-        SELECT u.id,
-               u.is_active,
-               ts.is_active as tech_is_active,
-               ts.wa_notification,
-               ts.max_active_tickets,
-               ts.specializations
-        FROM users u
-        LEFT JOIN technician_settings ts ON ts.user_id = u.id
-        WHERE u.id = ? AND u.deleted_at IS NULL
-        LIMIT 1
-      `, [technicianId])
+      hasTechnicianSettings
+        ? pool.query(`
+            SELECT u.id,
+                   u.is_active,
+                   ts.is_active as tech_is_active,
+                   ts.wa_notification,
+                   ts.max_active_tickets,
+                   ts.specializations
+            FROM users u
+            LEFT JOIN technician_settings ts ON ts.user_id = u.id
+            WHERE u.id = ? AND u.deleted_at IS NULL
+            LIMIT 1
+          `, [technicianId])
+        : pool.query(`
+            SELECT u.id,
+                   u.is_active,
+                   NULL as tech_is_active,
+                   NULL as wa_notification,
+                   NULL as max_active_tickets,
+                   NULL as specializations
+            FROM users u
+            WHERE u.id = ? AND u.deleted_at IS NULL
+            LIMIT 1
+          `, [technicianId])
     ]);
 
     const stats = statusRows[0] || {};
@@ -281,7 +313,7 @@ router.get('/stats', auth, role('Subtekinfo'), dashboardLimiter, async (req, res
         SUM(CASE WHEN t.status = 'Pending' THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN t.status = 'Proses' THEN 1 ELSE 0 END) AS proses,
         SUM(CASE WHEN t.status = 'Selesai' THEN 1 ELSE 0 END) AS selesai,
-        (SELECT COUNT(*) FROM users WHERE role = 'Teknisi' AND is_active = 1 AND deleted_at IS NULL) AS activeTechs,
+        (SELECT COUNT(*) FROM users WHERE role IN ('Padal', 'Teknisi') AND is_active = 1 AND deleted_at IS NULL) AS activeTechs,
         (SELECT COUNT(*) FROM users WHERE deleted_at IS NULL) AS totalUsers
       FROM tickets t
       WHERE t.deleted_at IS NULL
