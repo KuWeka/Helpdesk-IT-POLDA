@@ -7,6 +7,20 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { ApiResponse } = require('../utils/apiResponse');
 const pool = require('../config/db');
 
+async function ensurePadalMembersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS padal_members (
+      id VARCHAR(36) PRIMARY KEY,
+      padal_id VARCHAR(36) NOT NULL,
+      teknisi_id VARCHAR(36) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_padal_member (teknisi_id),
+      KEY idx_pm_padal (padal_id),
+      KEY idx_pm_teknisi (teknisi_id)
+    )
+  `);
+}
+
 /**
  * GET /api/padal-shifts
  * List semua Padal beserta data shift dan status is_active.
@@ -110,8 +124,10 @@ router.get('/:padal_id/members', auth, role('Subtekinfo', 'Padal'), asyncHandler
     return res.status(403).json(ApiResponse.error('Tidak memiliki izin untuk melihat anggota Padal lain', null, 403));
   }
 
-  const [[padal]] = await pool.query(`SELECT id, name FROM users WHERE id = ? AND role = 'Padal'`, [padal_id]);
+  const [[padal]] = await pool.query(`SELECT id, name FROM users WHERE id = ? AND role IN ('Padal', 'Teknisi')`, [padal_id]);
   if (!padal) return res.status(404).json(ApiResponse.error('Padal tidak ditemukan', null, 404));
+
+  await ensurePadalMembersTable();
 
   const [members] = await pool.query(`
     SELECT u.id, u.name, u.email, u.phone, u.is_active, pm.created_at AS joined_at
@@ -139,11 +155,13 @@ router.post('/:padal_id/members', auth, role('Subtekinfo', 'Padal'), asyncHandle
 
   if (!teknisi_id) return res.status(400).json(ApiResponse.error('teknisi_id wajib diisi', null, 400));
 
-  const [[padal]] = await pool.query(`SELECT id FROM users WHERE id = ? AND role = 'Padal'`, [padal_id]);
+  const [[padal]] = await pool.query(`SELECT id FROM users WHERE id = ? AND role IN ('Padal', 'Teknisi')`, [padal_id]);
   if (!padal) return res.status(404).json(ApiResponse.error('Padal tidak ditemukan', null, 404));
 
   const [[teknisi]] = await pool.query(`SELECT id, name FROM users WHERE id = ? AND role = 'Teknisi' AND is_active = 1`, [teknisi_id]);
   if (!teknisi) return res.status(404).json(ApiResponse.error('Teknisi tidak ditemukan', null, 404));
+
+  await ensurePadalMembersTable();
 
   await pool.query(
     `INSERT IGNORE INTO padal_members (id, padal_id, teknisi_id) VALUES (?, ?, ?)`,
@@ -163,6 +181,8 @@ router.delete('/:padal_id/members/:teknisi_id', auth, role('Subtekinfo', 'Padal'
   if (req.user.role === 'Padal' && req.user.id !== padal_id) {
     return res.status(403).json(ApiResponse.error('Tidak memiliki izin untuk mengubah anggota Padal lain', null, 403));
   }
+
+  await ensurePadalMembersTable();
 
   await pool.query(`DELETE FROM padal_members WHERE padal_id = ? AND teknisi_id = ?`, [padal_id, teknisi_id]);
 

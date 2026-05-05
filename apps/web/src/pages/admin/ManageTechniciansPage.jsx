@@ -189,12 +189,24 @@ export default function ManageTechniciansPage() {
     setSelectedTeknisi('');
     setIsLoadingMembers(true);
     try {
-      const [membersRes, teknisiRes] = await Promise.all([
+      const [membersRes, teknisiRes] = await Promise.allSettled([
         api.get(`/padal-shifts/${tech.id}/members`),
         api.get('/users', { params: { role: 'Teknisi', perPage: 100 } }),
       ]);
-      setMembers(membersRes.data?.data?.members || []);
-      setTeknisiList(extractUsers(teknisiRes.data));
+
+      if (membersRes.status === 'fulfilled') {
+        setMembers(membersRes.value.data?.data?.members || []);
+      } else {
+        setMembers([]);
+        toast.error('Gagal memuat data anggota');
+      }
+
+      if (teknisiRes.status === 'fulfilled') {
+        setTeknisiList(extractUsers(teknisiRes.value.data));
+      } else {
+        setTeknisiList([]);
+        toast.error('Gagal memuat daftar teknisi');
+      }
     } catch {
       toast.error('Gagal memuat data anggota');
     } finally {
