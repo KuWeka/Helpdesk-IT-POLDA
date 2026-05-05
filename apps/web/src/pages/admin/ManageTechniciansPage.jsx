@@ -60,6 +60,14 @@ const extractUsers = (payload) => {
   return [];
 };
 
+const syncPadalMemberCount = (padalList, padalId, nextMembers) => (
+  padalList.map((item) => (
+    item.id === padalId
+      ? { ...item, member_count: nextMembers.length }
+      : item
+  ))
+);
+
 export default function ManageTechniciansPage() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -83,7 +91,7 @@ export default function ManageTechniciansPage() {
       if (activeTab === 'Padal') {
         try {
           const { data } = await api.get('/technicians');
-          setUsers(extractTechnicians(data));
+          setUsers(extractTechnicians(data).filter((item) => item.role === ROLES.PADAL));
         } catch (_) {
           // Fallback ke endpoint users agar daftar Padal tetap tampil meski
           // endpoint agregasi /technicians gagal karena ketergantungan tabel tambahan.
@@ -194,15 +202,16 @@ export default function ManageTechniciansPage() {
         api.get('/users', { params: { role: 'Teknisi', perPage: 100 } }),
       ]);
 
-      if (membersRes.status === 'fulfilled') {
-        setMembers(membersRes.value.data?.data?.members || []);
-      } else {
-        setMembers([]);
-        toast.error('Gagal memuat data anggota');
-      }
+      const nextMembers = membersRes.status === 'fulfilled'
+        ? (membersRes.value.data?.data?.members || [])
+        : [];
+      if (membersRes.status === 'rejected') toast.error('Gagal memuat data anggota');
+
+      setMembers(nextMembers);
+      setUsers((prev) => syncPadalMemberCount(prev, tech.id, nextMembers));
 
       if (teknisiRes.status === 'fulfilled') {
-        setTeknisiList(extractUsers(teknisiRes.value.data));
+        setTeknisiList(extractUsers(teknisiRes.value.data).filter((item) => item.role === ROLES.TEKNISI));
       } else {
         setTeknisiList([]);
         toast.error('Gagal memuat daftar teknisi');
@@ -222,8 +231,9 @@ export default function ManageTechniciansPage() {
       toast.success('Anggota berhasil ditambahkan');
       setSelectedTeknisi('');
       const res = await api.get(`/padal-shifts/${detailTarget.id}/members`);
-      setMembers(res.data?.data?.members || []);
-      fetchUsers();
+      const nextMembers = res.data?.data?.members || [];
+      setMembers(nextMembers);
+      setUsers((prev) => syncPadalMemberCount(prev, detailTarget.id, nextMembers));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal menambahkan anggota');
     } finally {
@@ -235,8 +245,11 @@ export default function ManageTechniciansPage() {
     try {
       await api.delete(`/padal-shifts/${detailTarget.id}/members/${teknisiId}`);
       toast.success(`${teknisiName} dihapus dari Padal`);
-      setMembers((prev) => prev.filter((m) => m.id !== teknisiId));
-      fetchUsers();
+      setMembers((prev) => {
+        const nextMembers = prev.filter((m) => m.id !== teknisiId);
+        setUsers((usersPrev) => syncPadalMemberCount(usersPrev, detailTarget.id, nextMembers));
+        return nextMembers;
+      });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal menghapus anggota');
     }

@@ -41,6 +41,7 @@ import AdminTicketDetailPage from '@/pages/admin/AdminTicketDetailPage.jsx';
 import TicketHistoryPage from '@/pages/admin/TicketHistoryPage.jsx';
 import ManageUsersPage from '@/pages/admin/ManageUsersPage.jsx';
 import ManageTechniciansPage from '@/pages/admin/ManageTechniciansPage.jsx';
+import ManageFieldTechniciansPage from '@/pages/admin/ManageFieldTechniciansPage.jsx';
 import ManageShiftPage from '@/pages/admin/ManageShiftPage.jsx';
 import ActivityLogsPage from '@/pages/admin/ActivityLogsPage.jsx';
 import SystemSettingsPage from '@/pages/admin/SystemSettingsPage.jsx';
@@ -128,11 +129,11 @@ function AppRoutes() {
         <Route path="tickets" element={<AllTicketsPage />} />
         <Route path="tickets/:id" element={<AdminTicketDetailPage />} />
         <Route path="padal" element={<ManageTechniciansPage />} />
-        <Route path="teknisi" element={<ManageTechniciansPage />} />
+        <Route path="teknisi" element={<ManageFieldTechniciansPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="ticket-history" element={<TicketHistoryPage />} />
         <Route path="users" element={<ManageUsersPage />} />
-        <Route path="technicians" element={<ManageTechniciansPage />} />
+        <Route path="technicians" element={<ManageFieldTechniciansPage />} />
         <Route path="padal-shifts" element={<ManageShiftPage />} />
         <Route path="activity-logs" element={<ActivityLogsPage />} />
         <Route path="settings" element={<SystemSettingsPage />} />
