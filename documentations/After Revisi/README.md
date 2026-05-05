@@ -14,10 +14,11 @@ Folder ini adalah arsip implementasi terbaru setelah rangkaian revisi ProjectPol
 
 ## Dokumen Sesi
 
-Sesi implementasi disusun kronologis dari `SESI_1` sampai `SESI_12`.
+Sesi implementasi disusun kronologis dari `SESI_1` sampai `SESI_13`.
 
 | Dokumen | Ringkasan | Tanggal |
 |---------|-----------|---------|
+| [SESI_13_Stabilisasi_Laporan_dan_Daftar_Tiket.md](SESI_13_Stabilisasi_Laporan_dan_Daftar_Tiket.md) | Stabilisasi data tiket Subtekinfo dan fallback laporan bulanan lintas skema DB | 2026-05-04 |
 | [SESI_12_Perbaikan_Test_dan_Lint.md](SESI_12_Perbaikan_Test_dan_Lint.md) | Perbaikan test backend dan konfigurasi lint frontend | 2026-05-04 |
 
 ## Aturan Update

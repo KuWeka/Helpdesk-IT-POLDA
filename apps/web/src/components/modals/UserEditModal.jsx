@@ -7,40 +7,18 @@ import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Switch } from '@/components/ui/switch.jsx';
 import { Loader2 } from 'lucide-react';
-import api from '@/lib/api.js';
 import { ROLES } from '@/lib/constants.js';
-
-const extractItems = (payload) => {
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload)) return payload;
-  return [];
-};
 
 export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    role: ROLES.USER,
-    division_id: '',
+    role: ROLES.SATKER,
     is_active: true,
     password: '',
     passwordConfirm: ''
   });
-  const [divisions, setDivisions] = useState([]);
-
-  useEffect(() => {
-    const fetchDivisions = async () => {
-      try {
-        const { data } = await api.get('/divisions', { params: { sort: 'name' } });
-        setDivisions(extractItems(data));
-      } catch (error) {
-        console.error('Error fetching divisions:', error);
-      }
-    };
-    if (isOpen) fetchDivisions();
-  }, [isOpen]);
 
   useEffect(() => {
     if (user) {
@@ -48,8 +26,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
         name: user.name || '',
         email: user.email || '',
         phone: user.phone || '',
-        role: user.role || ROLES.USER,
-        division_id: user.division_id || '',
+        role: user.role || ROLES.SATKER,
         is_active: user.is_active !== false,
         password: '',
         passwordConfirm: ''
@@ -59,8 +36,7 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
         name: '',
         email: '',
         phone: '',
-        role: ROLES.USER,
-        division_id: '',
+        role: ROLES.SATKER,
         is_active: true,
         password: '',
         passwordConfirm: ''
@@ -80,7 +56,6 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
       name: formData.name,
       phone: formData.phone,
       role: formData.role,
-      division_id: formData.division_id === 'none' ? null : (formData.division_id || null),
       is_active: formData.is_active
     };
 
@@ -145,35 +120,19 @@ export default function UserEditModal({ isOpen, onClose, user, onSave, isLoading
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select value={formData.role} onValueChange={(val) => handleChange('role', val)}>
-                <SelectTrigger className="bg-background text-foreground">
-                  <SelectValue placeholder="Pilih Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ROLES.USER}>User</SelectItem>
-                  <SelectItem value={ROLES.TECHNICIAN}>Teknisi</SelectItem>
-                  <SelectItem value={ROLES.ADMIN}>Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="division">Divisi</Label>
-              <Select value={formData.division_id || 'none'} onValueChange={(val) => handleChange('division_id', val)}>
-                <SelectTrigger className="bg-background text-foreground">
-                  <SelectValue placeholder="Pilih Divisi" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Tidak Ada</SelectItem>
-                  {divisions.map((div) => (
-                    <SelectItem key={div.id} value={div.id}>{div.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <Select value={formData.role} onValueChange={(val) => handleChange('role', val)}>
+              <SelectTrigger className="bg-background text-foreground">
+                <SelectValue placeholder="Pilih Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROLES.SUBTEKINFO}>Subtekinfo</SelectItem>
+                <SelectItem value={ROLES.PADAL}>Padal</SelectItem>
+                <SelectItem value={ROLES.TEKNISI}>Teknisi</SelectItem>
+                <SelectItem value={ROLES.SATKER}>Satker</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-2 border-t">

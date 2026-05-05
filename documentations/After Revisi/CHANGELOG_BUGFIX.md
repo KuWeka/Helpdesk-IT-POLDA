@@ -8,6 +8,26 @@ Dokumen ini mencatat semua perbaikan bug dan implementasi saran dari `ProjectPol
 
 ## BUG FIXES
 
+### BUG-13 — Semua Tiket Subtekinfo gagal memuat data
+- **File**: `apps/web/src/pages/admin/AllTicketsPage.jsx`
+- **Perubahan**: Param query diperbaiki ke `assigned_technician_id`, parser respons ditambah untuk format `data.tickets`, dan toast error fetch ditampilkan
+- **Status**: ✅ Selesai
+
+### BUG-14 — Kelola Padal gagal memuat data
+- **File**: `apps/web/src/pages/admin/ManageTechniciansPage.jsx`
+- **Perubahan**: Tambah fallback endpoint `/users?role=Padal` saat `/technicians` gagal, serta update pesan error menjadi "Gagal memuat data padal"
+- **Status**: ✅ Selesai
+
+### BUG-15 — Laporan bulanan gagal karena kolom `padal_id` tidak ada
+- **File**: `backend/src/routes/reports.js`, `backend/src/services/TicketService.js`
+- **Perubahan**: Tambah deteksi kolom `tickets.padal_id`; jika tidak ada maka query fallback ke `assigned_technician_id`
+- **Status**: ✅ Selesai
+
+### BUG-16 — Laporan bulanan gagal karena kolom `rejection_reason` tidak ada
+- **File**: `backend/src/routes/reports.js`
+- **Perubahan**: Tambah deteksi kolom `tickets.rejection_reason`; jika tidak ada maka gunakan `NULL AS rejection_reason`
+- **Status**: ✅ Selesai
+
 ### BUG-10 — Env validation gagal saat test integration
 - **File**: `backend/tests/setup.js`
 - **Perubahan**: Nilai `JWT_SECRET` pada setup test diperpanjang agar memenuhi minimum 32 karakter

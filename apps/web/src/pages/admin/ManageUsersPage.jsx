@@ -179,7 +179,6 @@ export default function ManageUsersPage() {
                 <TableRow>
                   <TableHead className="px-6">{t('manageUsers.nameEmail', 'Name & Email')}</TableHead>
                   <TableHead>{t('manageUsers.phone', 'Phone')}</TableHead>
-                  <TableHead>{t('common.division', 'Division')}</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>{t('common.status', 'Status')}</TableHead>
                   <TableHead>{t('manageUsers.registerDate', 'Register Date')}</TableHead>
@@ -192,7 +191,6 @@ export default function ManageUsersPage() {
                     <TableRow key={i}>
                       <TableCell className="px-6"><Skeleton className="h-10 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -207,9 +205,6 @@ export default function ManageUsersPage() {
                         <div className="text-sm text-muted-foreground">{u.email}</div>
                       </TableCell>
                       <TableCell className="text-sm">{u.phone || '-'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {u.division_name || '-'}
-                      </TableCell>
                       <TableCell>{getRoleBadge(u.role)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={u.is_active ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}>
