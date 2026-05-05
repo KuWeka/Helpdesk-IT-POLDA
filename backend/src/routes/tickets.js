@@ -31,7 +31,6 @@ const ticketListLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const TicketService = require('../services/TicketService');
 const { invalidateAllDashboardCaches } = require('../utils/dashboardCache');
 const { normalizeRole } = require('../config/roles');
 
