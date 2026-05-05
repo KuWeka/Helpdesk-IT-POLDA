@@ -5,6 +5,12 @@ const { cache } = require('../utils/cache');
 const { normalizeRole } = require('../config/roles');
 
 class UserService {
+  static getRoleFilterValues(role) {
+    const normalized = normalizeRole(role);
+    const legacy = this.toLegacyRole(normalized);
+    return Array.from(new Set([normalized, legacy].filter(Boolean)));
+  }
+
   static toLegacyRole(role) {
     switch (role) {
       case 'Subtekinfo':
@@ -68,11 +74,19 @@ class UserService {
       WHERE u.is_active = 1 AND u.deleted_at IS NULL
     `;
     const params = [];
+    const normalizedFilterRole = filters.role ? normalizeRole(filters.role) : null;
 
     // Apply filters
-    if (filters.role) {
-      query += ' AND u.role = ?';
-      params.push(filters.role);
+    if (normalizedFilterRole) {
+      const roleValues = this.getRoleFilterValues(normalizedFilterRole);
+      if (roleValues.length === 1) {
+        query += ' AND u.role = ?';
+        params.push(roleValues[0]);
+      } else {
+        const placeholders = roleValues.map(() => '?').join(', ');
+        query += ` AND u.role IN (${placeholders})`;
+        params.push(...roleValues);
+      }
     }
 
     if (filters.is_active !== undefined) {
@@ -97,7 +111,7 @@ class UserService {
     const ALLOWED_SORT_FIELDS_USER = ['name', 'email', 'created_at', 'updated_at', 'role'];
     const ALLOWED_SORT_ORDERS_USER = ['ASC', 'DESC'];
 
-    if (filters.role === 'Padal') {
+    if (normalizedFilterRole === 'Padal') {
       const sortField = ALLOWED_SORT_FIELDS_USER.includes(filters.sort) ? filters.sort : 'name';
       const sortOrder = ALLOWED_SORT_ORDERS_USER.includes(filters.order?.toUpperCase()) ? filters.order.toUpperCase() : 'ASC';
       query += ` ORDER BY is_shift_active DESC, u.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
@@ -120,9 +134,13 @@ class UserService {
     }
 
     const [rows] = await pool.query(query, params);
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      role: normalizeRole(row.role),
+    }));
 
     const payload = {
-      users: rows,
+      users: normalizedRows,
       pagination: { page: safePage, perPage: safePerPage, total, totalPages: Math.ceil(total / safePerPage) }
     };
 
