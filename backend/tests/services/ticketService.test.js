@@ -153,7 +153,7 @@ describe('TicketService', () => {
       mockQuery.mockResolvedValueOnce([rows]);
     }
 
-    test('returns paginated tickets from DB on cache miss', async () => {
+    test('returns paginated tickets from DB', async () => {
       const ticket = makeTicketRow();
       setupGetTicketsMocks([ticket], 1);
 
@@ -161,17 +161,22 @@ describe('TicketService', () => {
 
       expect(result.tickets).toHaveLength(1);
       expect(result.pagination.total).toBe(1);
-      expect(mockCacheSet).toHaveBeenCalled();
+      // Caching is intentionally disabled (shouldUseCache = false) due to
+      // Railway Redis SCAN unreliability — cache.set should not be called.
+      expect(mockCacheSet).not.toHaveBeenCalled();
     });
 
-    test('returns cached list without running any DB query', async () => {
+    test('always queries DB (caching disabled)', async () => {
+      // Even if cache.get returns a value, shouldUseCache = false means
+      // the service skips the cache check and always hits the DB.
       const cached = { tickets: [makeTicketRow()], pagination: { page: 1, perPage: 10, total: 1, totalPages: 1 } };
       mockCacheGet.mockResolvedValueOnce(cached);
+      setupGetTicketsMocks([makeTicketRow()], 1);
 
       const result = await TicketService.getTickets({}, { page: 1, perPage: 10 });
 
-      expect(result).toEqual(cached);
-      expect(mockQuery).not.toHaveBeenCalled();
+      expect(mockQuery).toHaveBeenCalled();
+      expect(result.tickets).toHaveLength(1);
     });
 
     test('clamps perPage to MAX_PER_PAGE (100)', async () => {
