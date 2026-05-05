@@ -9,6 +9,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { validateQuery } = require('../middleware/validation');
 const { ticketSchemas } = require('../utils/validationSchemas');
 const { ApiResponse } = require('../utils/apiResponse');
+const TicketService = require('../services/TicketService');
 
 // Rate limiter: max 10 ticket submissions per user per hour
 const ticketCreateLimiter = rateLimit({
@@ -591,8 +592,10 @@ router.post('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, re
     [uuidv4(), ticketId, padal_id, req.user.id]
   );
 
-  // Update padal_id di tiket
-  await pool.query('UPDATE tickets SET padal_id = ? WHERE id = ? AND deleted_at IS NULL', [padal_id, ticketId]);
+  // Update padal_id (or assigned_technician_id if padal_id column missing) di tiket
+  const hasPadalIdCol = await TicketService.hasPadalIdColumn();
+  const padalCol = hasPadalIdCol ? 'padal_id' : 'assigned_technician_id';
+  await pool.query(`UPDATE tickets SET ${padalCol} = ? WHERE id = ? AND deleted_at IS NULL`, [padal_id, ticketId]);
 
   await TicketService.invalidateTicketCaches(ticketId);
   await invalidateAllDashboardCaches();
@@ -622,9 +625,11 @@ router.delete('/:id/assign', auth, role('Subtekinfo'), asyncHandler(async (req, 
     [ticketId]
   );
 
-  // Kembalikan tiket ke Pending dan clear padal_id
+  // Kembalikan tiket ke Pending dan clear padal_id (or assigned_technician_id)
+  const hasPadalIdColDel = await TicketService.hasPadalIdColumn();
+  const padalColDel = hasPadalIdColDel ? 'padal_id' : 'assigned_technician_id';
   await pool.query(
-    "UPDATE tickets SET padal_id = NULL, status = 'Pending' WHERE id = ? AND deleted_at IS NULL",
+    `UPDATE tickets SET ${padalColDel} = NULL, status = 'Pending' WHERE id = ? AND deleted_at IS NULL`,
     [ticketId]
   );
 
@@ -687,8 +692,10 @@ router.patch('/:id/assignment/respond', auth, role('Padal'), asyncHandler(async 
       "UPDATE ticket_assignments SET status = 'rejected', reject_note = ?, responded_at = NOW() WHERE id = ?",
       [note || null, assignment.id]
     );
+    const hasPadalIdColReject = await TicketService.hasPadalIdColumn();
+    const padalColReject = hasPadalIdColReject ? 'padal_id' : 'assigned_technician_id';
     await pool.query(
-      "UPDATE tickets SET status = 'Pending', padal_id = NULL WHERE id = ? AND deleted_at IS NULL",
+      `UPDATE tickets SET status = 'Pending', ${padalColReject} = NULL WHERE id = ? AND deleted_at IS NULL`,
       [ticketId]
     );
 
