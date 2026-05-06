@@ -129,7 +129,7 @@ function AppRoutes() {
         <Route path="tickets" element={<AllTicketsPage />} />
         <Route path="tickets/:id" element={<AdminTicketDetailPage />} />
         <Route path="padal" element={<ManageTechniciansPage />} />
-        <Route path="teknisi" element={<ManageFieldTechniciansPage />} />
+        <Route path="teknisi" element={<Navigate to="/subtekinfo/padal" replace />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="ticket-history" element={<TicketHistoryPage />} />
         <Route path="users" element={<ManageUsersPage />} />

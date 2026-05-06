@@ -224,14 +224,12 @@ export default function AdminDashboard() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
           {[
             { title: t('adminDashboard.totalTickets', 'Total Tickets'), value: stats.total, icon: Ticket, note: t('adminDashboard.totalTicketsNote', 'All tickets registered') },
             { title: t('status.pending', 'Pending'), value: stats.pending, icon: Clock, note: t('adminDashboard.pendingNote', 'Waiting for handling') },
             { title: t('status.proses', 'In Progress'), value: stats.proses, icon: PlayCircle, note: t('adminDashboard.inProgressNote', 'Currently being worked on') },
             { title: t('status.selesai', 'Completed'), value: stats.selesai, icon: CheckCircle2, note: t('adminDashboard.completedNote', 'Completed successfully') },
-            { title: t('admin.active_techs', 'Active Technicians'), value: stats.activeTechs, icon: Users, note: t('adminDashboard.activeTechsNote', 'Technicians on duty') },
-            { title: t('adminDashboard.users', 'Users'), value: stats.totalUsers, icon: Users, note: t('adminDashboard.usersNote', 'Total registered users') }
           ].map((item) => (
             <Card key={item.title} className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

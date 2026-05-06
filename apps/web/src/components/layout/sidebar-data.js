@@ -70,10 +70,9 @@ export const adminSidebarData = {
       items: [
         { title: 'Dashboard', url: '/subtekinfo/dashboard', icon: LayoutDashboard },
         { title: 'Semua Tiket', url: '/subtekinfo/tickets', icon: Ticket },
-        { title: 'Kelola Padal', url: '/subtekinfo/padal', icon: UserCog },
-        { title: 'Kelola Teknisi', url: '/subtekinfo/teknisi', icon: Users },
+        { title: 'Kelola Staff', url: '/subtekinfo/padal', icon: Users },
         { title: 'Laporan Bulanan', url: '/subtekinfo/reports', icon: BarChart2 },
-        { title: 'Kelola User', url: '/subtekinfo/users', icon: UserCog },
+        { title: 'Kelola Satker', url: '/subtekinfo/users', icon: UserCog },
         { title: 'Notifikasi', url: '/subtekinfo/notifications', icon: Bell },
         { title: 'Pengaturan Akun', url: '/subtekinfo/account-settings', icon: Settings },
       ],

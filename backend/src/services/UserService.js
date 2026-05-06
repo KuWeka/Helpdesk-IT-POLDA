@@ -67,7 +67,11 @@ class UserService {
                     AND CURDATE() BETWEEN ps.shift_start AND ps.shift_end
                THEN 1 ELSE 0
              END AS is_shift_active,
-             ps.notes AS shift_notes
+             ps.notes AS shift_notes,
+             (SELECT pu.name FROM padal_members pm
+              JOIN users pu ON pu.id = pm.padal_id
+              WHERE pm.teknisi_id = u.id
+              LIMIT 1) AS padal_name
       FROM users u
       LEFT JOIN padal_shifts ps ON ps.padal_id = u.id
       WHERE u.is_active = 1 AND u.deleted_at IS NULL

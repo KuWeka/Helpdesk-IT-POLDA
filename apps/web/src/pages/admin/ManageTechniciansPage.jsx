@@ -124,7 +124,8 @@ export default function ManageTechniciansPage() {
             perPage: 100,
           }
         });
-        setUsers(extractUsers(data).filter((item) => item.role === ROLES.TEKNISI));
+        setUsers(extractUsers(data).filter((item) => item.role === ROLES.TEKNISI)
+          .sort((a, b) => (b.padal_name ? 1 : 0) - (a.padal_name ? 1 : 0)));
       }
     } catch (err) {
       toast.error(
@@ -307,7 +308,9 @@ export default function ManageTechniciansPage() {
                   <TableHead>Jumlah Anggota</TableHead>
                 </>
               ) : (
-                <TableHead>Role</TableHead>
+                <>
+                  <TableHead>Padal</TableHead>
+                </>
               )}
               <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
             </TableRow>
@@ -379,9 +382,15 @@ export default function ManageTechniciansPage() {
                       </TableCell>
                     </>
                   ) : (
-                    <TableCell>
-                      <Badge variant="outline">{tech.role || 'Teknisi'}</Badge>
-                    </TableCell>
+                    <>
+                      <TableCell>
+                        {tech.padal_name ? (
+                          <span className="text-sm font-medium text-foreground">{tech.padal_name}</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </>
                   )}
                   <TableCell className="text-right px-6">
                     {activeTab === 'Padal' ? (

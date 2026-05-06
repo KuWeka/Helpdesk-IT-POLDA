@@ -152,7 +152,7 @@ export default function AllTicketsPage() {
                 </SelectContent>
               </Select>
               <Select value={techFilter} onValueChange={setTechFilter}>
-                <SelectTrigger className="w-[160px] bg-background"><SelectValue placeholder={t('roles.technician', 'Technician')} /></SelectTrigger>
+                <SelectTrigger className="w-[160px] bg-background"><SelectValue placeholder="Semua Padal" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('adminTickets.allTechnicians', 'All Technicians')}</SelectItem>
                   {technicians.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -174,8 +174,8 @@ export default function AllTicketsPage() {
                   <TableHead className="w-[120px] px-6">{t('common.ticketId', 'Ticket ID')}</TableHead>
                   <TableHead>{t('common.title', 'Title')}</TableHead>
                   <TableHead>{t('common.status', 'Status')}</TableHead>
-                  <TableHead>{t('tickets.reporter', 'Reporter')}</TableHead>
-                  <TableHead>{t('roles.technician', 'Technician')}</TableHead>
+                  <TableHead>Satker/Lokasi</TableHead>
+                  <TableHead>Padal</TableHead>
                   <TableHead>{t('common.date', 'Date')}</TableHead>
                   <TableHead className="text-right px-6">{t('common.actions', 'Actions')}</TableHead>
                 </TableRow>

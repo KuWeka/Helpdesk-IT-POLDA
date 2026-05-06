@@ -89,7 +89,7 @@ router.get('/admin-summary', auth, role('Subtekinfo'), dashboardLimiter, async (
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
         WHERE t.status = 'Pending' AND t.deleted_at IS NULL
         ORDER BY t.created_at DESC
-        LIMIT 10
+        LIMIT 3
       `),
       pool.query(`
         SELECT t.id, t.ticket_number, t.title, t.created_at,
@@ -109,7 +109,7 @@ router.get('/admin-summary', auth, role('Subtekinfo'), dashboardLimiter, async (
         LEFT JOIN users tech ON t.assigned_technician_id = tech.id
         WHERE t.status = 'Selesai' AND t.deleted_at IS NULL
         ORDER BY t.closed_at DESC, t.created_at DESC
-        LIMIT 10
+        LIMIT 3
       `),
       pool.query(`
         SELECT tech.name as technician_name, COUNT(*) as total
