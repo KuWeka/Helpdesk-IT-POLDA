@@ -55,7 +55,7 @@ const syncMemberCount = (list, padalId, members) =>
 // ── sub-components ────────────────────────────────────────────────────────────
 
 /** Dialog Detail Padal: info + anggota + tambah anggota */
-function DetailPadalDialog({ padal, onClose }) {
+function DetailPadalDialog({ padal, onClose, onMemberChange }) {
   const [members, setMembers] = useState([]);
   const [teknisiPool, setTeknisiPool] = useState([]);
   const [selectedTeknisi, setSelectedTeknisi] = useState('');
@@ -89,6 +89,7 @@ function DetailPadalDialog({ padal, onClose }) {
       toast.success('Anggota berhasil ditambahkan');
       setSelectedTeknisi('');
       fetchData();
+      onMemberChange?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal menambahkan anggota');
     } finally {
@@ -101,6 +102,7 @@ function DetailPadalDialog({ padal, onClose }) {
       await api.delete(`/padal-shifts/${padal.id}/members/${teknisiId}`);
       toast.success(`${name} dihapus dari Padal`);
       setMembers(prev => prev.filter(m => m.id !== teknisiId));
+      onMemberChange?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gagal menghapus anggota');
     }
@@ -544,6 +546,7 @@ export default function ManageTechniciansPage() {
       <DetailPadalDialog
         padal={detailTarget}
         onClose={() => setDetailTarget(null)}
+        onMemberChange={fetchPadal}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
