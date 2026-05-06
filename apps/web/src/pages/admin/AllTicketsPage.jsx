@@ -154,7 +154,7 @@ export default function AllTicketsPage() {
               <Select value={techFilter} onValueChange={setTechFilter}>
                 <SelectTrigger className="w-[160px] bg-background"><SelectValue placeholder="Semua Padal" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('adminTickets.allTechnicians', 'All Technicians')}</SelectItem>
+                  <SelectItem value="all">{t('adminTickets.allPadal', 'Semua Padal')}</SelectItem>
                   {technicians.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
